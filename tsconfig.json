@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "target": "ES2022",
+    "outDir": "./exports",
+    "moduleResolution": "NodeNext",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "types": ["@lit/reactive-element/css-tag.d.ts", "lit-html"]
+  },
+  "include": ["./src/**/*"]
+}
