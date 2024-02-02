@@ -4,9 +4,10 @@
     "target": "ES2022",
     "outDir": "./exports",
     "moduleResolution": "NodeNext",
+    "declaration": true,
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
-    "types": ["@lit/reactive-element/css-tag.d.ts", "lit-html"]
+    "types": ["node"]
   },
   "include": ["./src/**/*"]
 }
