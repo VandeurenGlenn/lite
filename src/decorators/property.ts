@@ -81,14 +81,17 @@ export const property = (options?: PropertyOptions) => {
           this[propertyKey] = value
         })
       }
-      if (consumer && globalThis.pubsub.subscribers?.[propertyKey]) {
-        return globalThis.pubsub.subscribers?.[propertyKey].value
-      }
-      return reflect
+
+      const value = reflect
         ? isBoolean
           ? this.hasAttribute(attributeName)
           : stringToType(this.getAttribute(attributeName), type)
         : target[`_${propertyKey}`]
+
+      if (!value && consumer && globalThis.pubsub.subscribers[propertyKey]?.value) {
+        return globalThis.pubsub.subscribers?.[propertyKey].value
+      }
+      return value
     }
 
     async function set(value) {
@@ -115,7 +118,7 @@ export const property = (options?: PropertyOptions) => {
             })
           }
 
-          if (globalThis.pubsub.subscribers?.[propertyKey].value !== value) {
+          if (globalThis.pubsub.subscribers[propertyKey]?.value !== value) {
             globalThis.pubsub.publish(propertyKey, value)
           }
         }
