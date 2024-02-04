@@ -8,6 +8,7 @@ declare interface ElementConstructor {
 export type StyleList = CSSResult[] | CSSStyleSheet[]
 
 class LiteElement extends HTMLElement {
+  rendered: boolean
   constructor() {
     super()
     this.attachShadow({ mode: 'open' })
@@ -24,10 +25,20 @@ class LiteElement extends HTMLElement {
 
   requestRender() {
     render(this.render(), this.shadowRoot)
+
+    if (!this.rendered) {
+      this.rendered = true
+      this.firstRender()
+    }
   }
 
   /**
-   * onChange happens after new value is set and before render
+   * firstRender happens after new value is set and after render
+   */
+  firstRender() {}
+
+  /**
+   * onChange happens after new value is set and after render
    */
   onChange(propertyKey, value) {
     return value

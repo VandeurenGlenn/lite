@@ -19,6 +19,10 @@
       "import": "./exports/property.js",
       "types": "./exports/decorators/property.d.ts"
     },
+    "./query-all": {
+      "import": "./exports/query-all.js",
+      "types": "./exports/decorators/query-all.d.ts"
+    },
     "./query": {
       "import": "./exports/query.js",
       "types": "./exports/decorators/query.d.ts"

@@ -90,8 +90,8 @@ export const property = (options?: PropertyOptions) => {
           // only store data ourselves when really needed
           else target[`_${propertyKey}`] = value
         }
-        if (this.onChange) await this.onChange(propertyKey, value)
         if (this.requestRender && renders) this.requestRender()
+        if (this.onChange) await this.onChange(propertyKey, value)
       }
 
       if (batches) {
