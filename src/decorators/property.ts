@@ -1,3 +1,7 @@
+import LittlePubSub from '@vandeurenglenn/little-pubsub'
+
+globalThis.pubsub = globalThis.pubsub || new LittlePubSub()
+
 export type SupportedTypes =
   | String
   | Boolean
@@ -26,6 +30,8 @@ export type PropertyOptions = {
   value?: string | [] | {} | number | boolean | Map<any, any> | WeakMap<any, any> | Uint8Array
   batches?: boolean
   batchDelay?: number
+  provider?: boolean
+  consumer?: boolean
 }
 
 const defaultOptions: PropertyOptions = {
@@ -62,13 +68,16 @@ const typeToString = (type, value) => {
 export const property = (options?: PropertyOptions) => {
   options = { ...defaultOptions, ...options }
   return (target: any, propertyKey: string, descriptor?: PropertyDescriptor) => {
-    const { type, reflect, attribute, renders, batches, batchDelay } = options
+    const { type, reflect, attribute, renders, batches, batchDelay, consumer, provider } = options
     const attributeName = attribute || propertyKey
 
     const isBoolean = type === Boolean
     // let timeoutChange
 
     function get() {
+      if (consumer && globalThis.pubsub.subscribers?.[propertyKey]) {
+        return globalThis.pubsub.subscribers?.[propertyKey].value
+      }
       return reflect
         ? isBoolean
           ? this.hasAttribute(attributeName)
@@ -92,6 +101,11 @@ export const property = (options?: PropertyOptions) => {
         }
         if (this.requestRender && renders) this.requestRender()
         if (this.onChange) await this.onChange(propertyKey, value)
+        if (provider && globalThis.pubsub.subscribers?.[propertyKey]) {
+          if (globalThis.pubsub.subscribers?.[propertyKey].value !== value) {
+            globalThis.pubsub.publish(propertyKey, value)
+          }
+        }
       }
 
       if (batches) {
@@ -108,6 +122,12 @@ export const property = (options?: PropertyOptions) => {
     } else {
       descriptor.get = get
       descriptor.set = set
+    }
+
+    if (consumer) {
+      globalThis.pubsub.subscribe(propertyKey, (value) => {
+        target[propertyKey] = value
+      })
     }
   }
 }
