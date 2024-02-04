@@ -107,7 +107,14 @@ export const property = (options?: PropertyOptions) => {
         }
         if (this.requestRender && renders) this.requestRender()
         if (this.onChange) await this.onChange(propertyKey, value)
-        if (provider && globalThis.pubsub.subscribers?.[propertyKey]) {
+        if (provider) {
+          if (!consuming) {
+            consuming = true
+            globalThis.pubsub.subscribe(propertyKey, (value) => {
+              if (value !== this[propertyKey]) this[propertyKey] = value
+            })
+          }
+
           if (globalThis.pubsub.subscribers?.[propertyKey].value !== value) {
             globalThis.pubsub.publish(propertyKey, value)
           }
