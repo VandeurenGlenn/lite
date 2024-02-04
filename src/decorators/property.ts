@@ -1,7 +1,7 @@
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
 
 globalThis.pubsub = globalThis.pubsub || new LittlePubSub()
-
+let consuming
 export type SupportedTypes =
   | String
   | Boolean
@@ -75,6 +75,12 @@ export const property = (options?: PropertyOptions) => {
     // let timeoutChange
 
     function get() {
+      if (consumer && !consuming) {
+        consuming = true
+        globalThis.pubsub.subscribe(propertyKey, (value) => {
+          this[propertyKey] = value
+        })
+      }
       if (consumer && globalThis.pubsub.subscribers?.[propertyKey]) {
         return globalThis.pubsub.subscribers?.[propertyKey].value
       }
@@ -122,12 +128,6 @@ export const property = (options?: PropertyOptions) => {
     } else {
       descriptor.get = get
       descriptor.set = set
-    }
-
-    if (consumer) {
-      globalThis.pubsub.subscribe(propertyKey, (value) => {
-        target[propertyKey] = value
-      })
     }
   }
 }
