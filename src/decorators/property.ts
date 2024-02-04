@@ -73,7 +73,6 @@ export const property = (options?: PropertyOptions) => {
 
     const isBoolean = type === Boolean
     // let timeoutChange
-
     function get() {
       if (consumer && !consuming) {
         consuming = true
@@ -81,14 +80,13 @@ export const property = (options?: PropertyOptions) => {
           this[propertyKey] = value
         })
       }
-
       const value = reflect
         ? isBoolean
           ? this.hasAttribute(attributeName)
           : stringToType(this.getAttribute(attributeName), type)
         : target[`_${propertyKey}`]
-
       if (!value && consumer && globalThis.pubsub.subscribers[propertyKey]?.value) {
+        this[`${propertyKey}`] = globalThis.pubsub.subscribers?.[propertyKey].value
         return globalThis.pubsub.subscribers?.[propertyKey].value
       }
       return value
@@ -118,9 +116,7 @@ export const property = (options?: PropertyOptions) => {
             })
           }
 
-          if (globalThis.pubsub.subscribers[propertyKey]?.value !== value) {
-            globalThis.pubsub.publish(propertyKey, value)
-          }
+          globalThis.pubsub.publish(propertyKey, value)
         }
       }
 
