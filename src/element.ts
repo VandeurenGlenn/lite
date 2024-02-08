@@ -23,33 +23,13 @@ class LiteElement extends HTMLElement {
     return html`<slot></slot>`
   }
 
-  async handleRender(target: string) {
-    if (target) {
-      let value = this[target]
-      if (this.willChange) value = await this.willChange(target, this[target])
-      if (this.onChange) await this.onChange(target, value)
-      if (value !== this[target]) {
-        this[target] = value
-        return
-      }
-    }
+  requestRender() {
     render(this.render(), this.shadowRoot)
 
     if (!this.rendered) {
       this.rendered = true
       this.firstRender()
     }
-  }
-
-  /**
-   *
-   * @param target optional pass the requested propertykey
-   * this is needed for array and object additions
-   * (tip) no need todo requestRender('myObject')
-   * can also do myObject = myObject
-   */
-  requestRender(target?: string) {
-    this.handleRender(target)
   }
 
   /**
@@ -67,7 +47,7 @@ class LiteElement extends HTMLElement {
   /**
    * willChange happens before new value is set, makes it possible to mutate the value before render
    */
-  willChange(propertyKey, value) {
+  willchange(propertyKey, value) {
     return value
   }
 }
