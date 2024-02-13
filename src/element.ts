@@ -1,5 +1,5 @@
 import { html, render } from 'lit-html'
-import { css, CSSResult } from 'lit'
+import { CSSResult, css } from '@lit/reactive-element/css-tag.js'
 
 declare interface ElementConstructor {
   styles?: CSSResult[] | CSSStyleSheet[]
