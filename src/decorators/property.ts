@@ -78,11 +78,11 @@ export const property = (options?: PropertyOptions) => {
         consuming = true
         globalThis.pubsub.subscribe(propertyKey, (value) => {
           this[propertyKey] = value
+          if (this.onChange) this.onChange(propertyKey)
         })
       }
 
       if (consumer && globalThis.pubsub.subscribers[propertyKey]?.value) {
-        if (this.onChange) this.onChange(propertyKey)
         return this[`__${propertyKey}`] ? this[`__${propertyKey}`] : globalThis.pubsub.subscribers?.[propertyKey].value
       }
       const value = reflect
@@ -125,6 +125,7 @@ export const property = (options?: PropertyOptions) => {
             consuming = true
             globalThis.pubsub.subscribe(propertyKey, (value) => {
               if (value !== this[propertyKey]) this[propertyKey] = value
+              if (this.onChange) this.onChange(propertyKey)
             })
           }
 
