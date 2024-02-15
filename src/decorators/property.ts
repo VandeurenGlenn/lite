@@ -82,6 +82,7 @@ export const property = (options?: PropertyOptions) => {
       }
 
       if (consumer && globalThis.pubsub.subscribers[propertyKey]?.value) {
+        if (this.onChange) this.onChange(propertyKey)
         return this[`__${propertyKey}`] ? this[`__${propertyKey}`] : globalThis.pubsub.subscribers?.[propertyKey].value
       }
       const value = reflect
