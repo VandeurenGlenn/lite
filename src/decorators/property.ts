@@ -80,21 +80,32 @@ export const property = (options?: PropertyOptions) => {
           this[propertyKey] = value
         })
       }
+
+      if (consumer && globalThis.pubsub.subscribers[propertyKey]?.value) {
+        return this[`__${propertyKey}`] ? this[`__${propertyKey}`] : globalThis.pubsub.subscribers?.[propertyKey].value
+      }
       const value = reflect
         ? isBoolean
           ? this.hasAttribute(attributeName)
           : stringToType(this.getAttribute(attributeName), type)
+        : target[`__${propertyKey}`]
+        ? target[`__${propertyKey}`]
         : target[`_${propertyKey}`]
-      if (!value && consumer && globalThis.pubsub.subscribers[propertyKey]?.value) {
-        this[`${propertyKey}`] = globalThis.pubsub.subscribers?.[propertyKey].value
-        return globalThis.pubsub.subscribers?.[propertyKey].value
-      }
+
       return value
     }
 
     async function set(value) {
+      if (consumer && !consuming) {
+        consuming = true
+        globalThis.pubsub.subscribe(propertyKey, (value) => {
+          if (value !== this[propertyKey]) {
+            this[propertyKey] = value
+          }
+        })
+      }
       const set = async () => {
-        if (this.willChange) value = await this.willChange(propertyKey, value)
+        if (this.willChange) target[`__${propertyKey}`] = await this.willChange(propertyKey, value)
 
         if (target[`_${propertyKey}`] !== value) {
           if (reflect)
