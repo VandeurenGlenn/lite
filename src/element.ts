@@ -22,7 +22,7 @@ class LiteElement extends HTMLElement {
     this.requestRender()
   }
 
-  static styles = []
+  static styles: StyleList = []
 
   render() {
     return html`<slot></slot>`
