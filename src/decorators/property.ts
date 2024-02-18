@@ -93,16 +93,18 @@ export const property = (options?: PropertyOptions) => {
     })
     if (kind === 'accessor') {
       return {
-        get() {
+        get(): SupportedTypes {
           return get.call(this)
         },
-        set(value) {
+        set(value: SupportedTypes) {
           return set.call(this, value)
         },
-        init(value) {
+        init(value: SupportedTypes): ClassAccessorDecoratorResult<ElementConstructor, SupportedTypes> {
           if (value !== undefined) set.call(this, value)
           if (consumer && globalThis.pubsub.subscribers?.[name]?.value)
             set.call(this, globalThis.pubsub.subscribers[name].value)
+
+          return this[name]
         }
       }
     }
