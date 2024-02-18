@@ -31,6 +31,7 @@ export type PropertyOptions = {
   batchDelay?: number
   provider?: boolean
   consumer?: boolean
+  temporaryRender?: number
 }
 
 /**
@@ -48,7 +49,8 @@ const defaultOptions = {
   type: String,
   reflect: false,
   renders: true,
-  batchDelay: 50
+  batchDelay: 50,
+  temporaryRender: 10
 }
 
 const stringToType = (string, type) => {
@@ -77,8 +79,9 @@ const typeToString = (type: SupportedTypes, value: SupportedTypes) => {
 
 export const property = (options?: PropertyOptions) => {
   options = { ...defaultOptions, ...options }
+  let totalBatchUpdates = 0
   return function (ctor, { kind, name, addInitializer, access }: ClassAccessorDecoratorContext<ElementConstructor>) {
-    const { type, reflect, attribute, renders, batches, batchDelay, consumer, provider } = options
+    const { type, reflect, attribute, renders, batches, batchDelay, consumer, provider, temporaryRender } = options
     const propertyKey = String(name)
     const attributeName = attribute || propertyKey
     const isBoolean = type === Boolean
@@ -127,34 +130,41 @@ export const property = (options?: PropertyOptions) => {
       return value
     }
 
-    function set(value) {
-      const set = async () => {
-        // await this.rendered
-        if (provider) {
-          globalThis.pubsub.publish(name, value)
+    async function set(value) {
+      // await this.rendered
+      if (provider) {
+        globalThis.pubsub.publish(name, value)
+      }
+      if (this[`_${propertyKey}`] !== value) {
+        if (this.willChange) {
+          this[`__${propertyKey}`] = await this.willChange(name, value)
         }
-        if (this[`_${propertyKey}`] !== value) {
-          if (this.willChange) {
-            this[`__${propertyKey}`] = await this.willChange(name, value)
-          }
-          if (reflect)
-            if (isBoolean)
-              if (value || this[`__${propertyKey}`]) this.setAttribute(attributeName, '')
-              else this.removeAttribute(attributeName)
-            else if (value || this[`__${propertyKey}`])
-              this.setAttribute(attributeName, typeToString(type, this[`__${propertyKey}`] ?? value))
+        if (reflect)
+          if (isBoolean)
+            if (value || this[`__${propertyKey}`]) this.setAttribute(attributeName, '')
             else this.removeAttribute(attributeName)
-          // only store data ourselves when really needed
-          else this[`_${propertyKey}`] = value
+          else if (value || this[`__${propertyKey}`])
+            this.setAttribute(attributeName, typeToString(type, this[`__${propertyKey}`] ?? value))
+          else this.removeAttribute(attributeName)
+        // only store data ourselves when really needed
+        else this[`_${propertyKey}`] = value
+
+        const performUpdate = () => {
+          totalBatchUpdates = 0
           if (this.requestRender && renders) this.requestRender()
           if (this.onChange) this.onChange(name, this[`__${propertyKey}`] ?? value)
         }
-      }
 
-      if (batches) {
-        if (this[`_${propertyKey}_timeout`]) clearTimeout(this[`_${propertyKey}_timeout`])
-        this[`_${propertyKey}_timeout`] = setTimeout(set, batchDelay)
-      } else set()
+        if (batches) {
+          if (totalBatchUpdates === temporaryRender) {
+            performUpdate()
+          }
+          if (this[`_${propertyKey}_timeout`]) clearTimeout(this[`_${propertyKey}_timeout`])
+          this[`_${propertyKey}_timeout`] = setTimeout(performUpdate, batchDelay)
+        } else {
+          performUpdate()
+        }
+      }
     }
   }
 }
