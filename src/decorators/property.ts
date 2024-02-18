@@ -100,7 +100,7 @@ export const property = (options?: PropertyOptions) => {
         set(value: SupportedTypes) {
           return set.call(this, value)
         },
-        init(value: SupportedTypes): ClassAccessorDecoratorResult<ElementConstructor, SupportedTypes> {
+        init(value: any): ClassAccessorDecoratorResult<ElementConstructor, any> {
           if (value !== undefined) set.call(this, value)
           if (consumer && globalThis.pubsub.subscribers?.[name]?.value)
             set.call(this, globalThis.pubsub.subscribers[name].value)
