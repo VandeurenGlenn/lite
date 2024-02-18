@@ -1,9 +1,9 @@
 const hyphenate = (string) => string.replace(/([a-zA-Z])(?=[A-Z])/g, '$1-').toLowerCase()
 
-export function customElement() {
+export function customElement(name?: string) {
   return (klass: Function, { addInitializer }) => {
     addInitializer(function () {
-      customElements.define(hyphenate(klass.name), this)
+      customElements.define(name ?? hyphenate(klass.name), this)
     })
   }
 }
