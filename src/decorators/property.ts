@@ -79,11 +79,12 @@ export const property = (options?: PropertyOptions) => {
   options = { ...defaultOptions, ...options }
   return function (ctor, { kind, name, addInitializer, access }: ClassAccessorDecoratorContext<ElementConstructor>) {
     const { type, reflect, attribute, renders, batches, batchDelay, consumer, provider } = options
-    const attributeName = attribute || name
+    const propertyKey = String(name)
+    const attributeName = attribute || propertyKey
     const isBoolean = type === Boolean
     addInitializer(async function () {
       if (kind !== 'accessor') {
-        console.warn(`${this.localName}: @property(${options}) ${String(name)} ${kind} is not supported`)
+        console.warn(`${this.localName}: @property(${options}) ${propertyKey} ${kind} is not supported`)
       }
       if (consumer) {
         globalThis.pubsub.subscribe(name, async (value) => {
@@ -115,10 +116,10 @@ export const property = (options?: PropertyOptions) => {
         ? isBoolean
           ? this.hasAttribute(attributeName)
           : stringToType(this.getAttribute(attributeName), type)
-        : this[`__${String(name)}`]
-        ? this[`__${String(name)}`]
-        : this[`_${String(name)}`]
-      if (consumer && !this[`__${String(name)}`] && globalThis.pubsub.subscribers?.[String(name)]?.value) {
+        : this[`__${propertyKey}`]
+        ? this[`__${propertyKey}`]
+        : this[`_${propertyKey}`]
+      if (consumer && !this[`__${propertyKey}`] && globalThis.pubsub.subscribers?.[propertyKey]?.value) {
         if (value !== globalThis.pubsub.subscribers[name].value)
           set.call(this, globalThis.pubsub.subscribers[name].value)
         return globalThis.pubsub.subscribers[name].value
@@ -132,27 +133,27 @@ export const property = (options?: PropertyOptions) => {
         if (provider) {
           globalThis.pubsub.publish(name, value)
         }
-        if (this[`_${String(name)}`] !== value) {
+        if (this[`_${propertyKey}`] !== value) {
           if (this.willChange) {
-            this[`__${String(name)}`] = await this.willChange(name, value)
+            this[`__${propertyKey}`] = await this.willChange(name, value)
           }
           if (reflect)
             if (isBoolean)
-              if (value || this[`__${String(name)}`]) this.setAttribute(attributeName, '')
+              if (value || this[`__${propertyKey}`]) this.setAttribute(attributeName, '')
               else this.removeAttribute(attributeName)
-            else if (value || this[`__${String(name)}`])
-              this.setAttribute(attributeName, typeToString(type, this[`__${String(name)}`] ?? value))
+            else if (value || this[`__${propertyKey}`])
+              this.setAttribute(attributeName, typeToString(type, this[`__${propertyKey}`] ?? value))
             else this.removeAttribute(attributeName)
           // only store data ourselves when really needed
-          else this[`_${String(name)}`] = value
+          else this[`_${propertyKey}`] = value
           if (this.requestRender && renders) this.requestRender()
-          if (this.onChange) this.onChange(name, this[`__${String(name)}`] ?? value)
+          if (this.onChange) this.onChange(name, this[`__${propertyKey}`] ?? value)
         }
       }
 
       if (batches) {
-        if (this[`_${String(name)}_timeout`]) clearTimeout(this[`_${String(name)}_timeout`])
-        this[`_${String(name)}_timeout`] = setTimeout(set, batchDelay)
+        if (this[`_${propertyKey}_timeout`]) clearTimeout(this[`_${propertyKey}_timeout`])
+        this[`_${propertyKey}_timeout`] = setTimeout(set, batchDelay)
       } else set()
     }
   }
