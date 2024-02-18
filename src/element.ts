@@ -1,23 +1,28 @@
 import { html, render } from 'lit-html'
 import { CSSResult, css } from '@lit/reactive-element/css-tag.js'
 
-declare interface ElementConstructor {
+export declare interface ElementConstructor extends HTMLElement {
   styles?: CSSResult[] | CSSStyleSheet[]
 }
 
 export type StyleList = CSSResult[] | CSSStyleSheet[]
 
 class LiteElement extends HTMLElement {
-  rendered: boolean
+  renderResolve
+  renderedOnce = false
+  rendered = new Promise((resolve) => {
+    this.renderResolve = resolve
+  })
   constructor() {
     super()
     this.attachShadow({ mode: 'open' })
-    this.requestRender()
-    const klass = customElements.get(this.localName) as ElementConstructor
+    const klass = customElements.get(this.localName) as unknown as ElementConstructor
     this.shadowRoot.adoptedStyleSheets = klass.styles ? klass.styles.map((style) => style.styleSheet ?? style) : []
+
+    this.requestRender()
   }
 
-  static styles?: CSSResult[] | CSSStyleSheet[] = []
+  static styles = []
 
   render() {
     return html`<slot></slot>`
@@ -25,9 +30,9 @@ class LiteElement extends HTMLElement {
 
   requestRender() {
     render(this.render(), this.shadowRoot)
-
-    if (!this.rendered) {
-      this.rendered = true
+    if (!this.renderedOnce) {
+      this.renderResolve(true)
+      this.renderedOnce = true
       this.firstRender()
     }
   }

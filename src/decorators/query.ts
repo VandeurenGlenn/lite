@@ -1,16 +1,25 @@
-export const query = (query: string) => {
-  return (target: any, propertyKey: string, descriptor?: PropertyDescriptor) => {
-    const get = function () {
-      if (this.shadowRoot) {
-        return this.shadowRoot.querySelector(query)
-      }
-      return this.querySelector(query)
+export const query = (query) => {
+  return function (ctor, { kind, name, access, addInitializer }) {
+    if (kind !== 'accessor' && kind !== 'field') {
+      addInitializer(function () {
+        console.warn(`${this.localName}: @query(${query}) ${name} ${kind} is not supported`)
+      })
+
+      // return function(initialValue) {
+      //   return initialValue
+      // }
     }
 
-    if (!descriptor) {
-      Object.defineProperty(target, propertyKey, {
-        get
-      })
-    } else descriptor.get = get
+    if (kind === 'field') {
+      return function () {
+        return this.shadowRoot ? this.shadowRoot.querySelector(query) : this.querySelector(query)
+      }
+    } else {
+      return {
+        get() {
+          return this.shadowRoot ? this.shadowRoot.querySelector(query) : this.querySelector(query)
+        }
+      }
+    }
   }
 }

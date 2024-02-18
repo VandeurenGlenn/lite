@@ -1,7 +1,8 @@
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
+import { ElementConstructor } from '../element.js'
 
 globalThis.pubsub = globalThis.pubsub || new LittlePubSub()
-let consuming
+
 export type SupportedTypes =
   | String
   | Boolean
@@ -15,10 +16,8 @@ export type SupportedTypes =
 /**
  * @example
  * ```js
- * class MyElement extends HTMLElement {
- *  @property({onchange = (value) => value})
- *  open
- * }
+
+@@ -22,19 +21,8 @@ export type SupportedTypes =
  *
  * ```
  */
@@ -34,7 +33,18 @@ export type PropertyOptions = {
   consumer?: boolean
 }
 
-const defaultOptions: PropertyOptions = {
+/**
+ * @example
+ * ```js
+ * class MyElement extends HTMLElement {
+ *  @property({onchange = (value) => value})
+ *  open
+ * }
+ *
+ * ```
+ */
+
+const defaultOptions = {
   type: String,
   reflect: false,
   renders: true,
@@ -54,11 +64,11 @@ const stringToType = (string, type) => {
   return value
 }
 
-const typeToString = (type, value) => {
-  let string: SupportedTypes = value
+const typeToString = (type: SupportedTypes, value: SupportedTypes) => {
+  let string = value
   if (type === Boolean || type === Number || type === Uint8Array) return value.toString()
   else if (type === Array || type === Object || type === WeakMap || type === Map || type === Uint8Array) {
-    let array: []
+    let array
     if (type === Map || type === WeakMap) array = Object(value).entries()
     string = JSON.stringify(array)
   }
@@ -67,86 +77,81 @@ const typeToString = (type, value) => {
 
 export const property = (options?: PropertyOptions) => {
   options = { ...defaultOptions, ...options }
-  return (target: any, propertyKey: string, descriptor?: PropertyDescriptor) => {
+  return function (ctor, { kind, name, addInitializer, access }: ClassAccessorDecoratorContext<ElementConstructor>) {
     const { type, reflect, attribute, renders, batches, batchDelay, consumer, provider } = options
-    const attributeName = attribute || propertyKey
-
+    const attributeName = attribute || name
     const isBoolean = type === Boolean
-    // let timeoutChange
-    function get() {
-      if (consumer && !consuming) {
-        consuming = true
-        globalThis.pubsub.subscribe(propertyKey, (value) => {
-          this[propertyKey] = value
-          if (this.onChange) this.onChange(propertyKey)
+    addInitializer(async function () {
+      if (kind !== 'accessor') {
+        console.warn(`${this.localName}: @property(${options}) ${String(name)} ${kind} is not supported`)
+      }
+      if (consumer) {
+        globalThis.pubsub.subscribe(name, async (value) => {
+          this[name] = value
         })
       }
-
-      if (consumer && globalThis.pubsub.subscribers[propertyKey]?.value) {
-        return this[`__${propertyKey}`] ? this[`__${propertyKey}`] : globalThis.pubsub.subscribers?.[propertyKey].value
+    })
+    if (kind === 'accessor') {
+      return {
+        get() {
+          return get.call(this)
+        },
+        set(value) {
+          return set.call(this, value)
+        },
+        init(value) {
+          if (value !== undefined) set.call(this, value)
+          if (consumer && globalThis.pubsub.subscribers?.[name]?.value)
+            set.call(this, globalThis.pubsub.subscribers[name].value)
+        }
       }
+    }
+
+    // let timeoutChange
+    function get() {
       const value = reflect
         ? isBoolean
           ? this.hasAttribute(attributeName)
           : stringToType(this.getAttribute(attributeName), type)
-        : target[`__${propertyKey}`]
-        ? target[`__${propertyKey}`]
-        : target[`_${propertyKey}`]
-
+        : this[`__${String(name)}`]
+        ? this[`__${String(name)}`]
+        : this[`_${String(name)}`]
+      if (consumer && !this[`__${String(name)}`] && globalThis.pubsub.subscribers?.[String(name)]?.value) {
+        if (value !== globalThis.pubsub.subscribers[name].value)
+          set.call(this, globalThis.pubsub.subscribers[name].value)
+        return globalThis.pubsub.subscribers[name].value
+      }
       return value
     }
 
-    async function set(value) {
-      if (consumer && !consuming) {
-        consuming = true
-        globalThis.pubsub.subscribe(propertyKey, (value) => {
-          if (value !== this[propertyKey]) {
-            this[propertyKey] = value
-          }
-        })
-      }
+    function set(value) {
       const set = async () => {
-        if (this.willChange) target[`__${propertyKey}`] = await this.willChange(propertyKey, value)
-
-        if (target[`_${propertyKey}`] !== value) {
+        // await this.rendered
+        if (provider) {
+          globalThis.pubsub.publish(name, value)
+        }
+        if (this[`_${String(name)}`] !== value) {
+          if (this.willChange) {
+            this[`__${String(name)}`] = await this.willChange(name, value)
+          }
           if (reflect)
             if (isBoolean)
-              if (value) this.setAttribute(attributeName, '')
+              if (value || this[`__${String(name)}`]) this.setAttribute(attributeName, '')
               else this.removeAttribute(attributeName)
-            else if (value) this.setAttribute(attributeName, typeToString(type, value))
+            else if (value || this[`__${String(name)}`])
+              this.setAttribute(attributeName, typeToString(type, this[`__${String(name)}`] ?? value))
             else this.removeAttribute(attributeName)
           // only store data ourselves when really needed
-          else target[`_${propertyKey}`] = value
-        }
-        if (this.requestRender && renders) this.requestRender()
-        if (this.onChange) await this.onChange(propertyKey, value)
-        if (provider) {
-          if (!consuming) {
-            consuming = true
-            globalThis.pubsub.subscribe(propertyKey, (value) => {
-              if (value !== this[propertyKey]) this[propertyKey] = value
-              if (this.onChange) this.onChange(propertyKey)
-            })
-          }
-
-          globalThis.pubsub.publish(propertyKey, value)
+          else this[`_${String(name)}`] = value
+          if (this.requestRender && renders) this.requestRender()
+          if (this.onChange) this.onChange(name, this[`__${String(name)}`] ?? value)
         }
       }
 
       if (batches) {
-        if (target[`_${propertyKey}_timeout`]) clearTimeout(target[`_${propertyKey}_timeout`])
-        target[`_${propertyKey}_timeout`] = setTimeout(set, batchDelay)
+        if (this[`_${String(name)}_timeout`]) clearTimeout(this[`_${String(name)}_timeout`])
+        this[`_${String(name)}_timeout`] = setTimeout(set, batchDelay)
       } else set()
-    }
-
-    if (!descriptor) {
-      Object.defineProperty(target, propertyKey, {
-        get,
-        set
-      })
-    } else {
-      descriptor.get = get
-      descriptor.set = set
     }
   }
 }

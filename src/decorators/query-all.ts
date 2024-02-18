@@ -1,16 +1,25 @@
-export const queryAll = (query: string) => {
-  return (target: any, propertyKey: string, descriptor?: PropertyDescriptor) => {
-    const get = function () {
-      if (this.shadowRoot) {
-        return Array.from(this.shadowRoot.querySelectorAll(query))
-      }
-      return Array.from(this.querySelectorAll(query))
+export const queryAll = (query) => {
+  return function (ctor, { kind, name, access, addInitializer }) {
+    if (kind !== 'accessor' && kind !== 'field') {
+      addInitializer(function () {
+        console.warn(`${this.localName}: @query(${query}) ${name} ${kind} is not supported`)
+      })
+
+      // return function(initialValue) {
+      //   return initialValue
+      // }
     }
 
-    if (!descriptor) {
-      Object.defineProperty(target, propertyKey, {
-        get
-      })
-    } else descriptor.get = get
+    if (kind === 'field') {
+      return function () {
+        return this.shadowRoot ? this.shadowRoot.querySelectorAll(query) : this.querySelectorAll(query)
+      }
+    } else {
+      return {
+        get() {
+          return this.shadowRoot ? this.shadowRoot.querySelectorAll(query) : this.querySelectorAll(query)
+        }
+      }
+    }
   }
 }
