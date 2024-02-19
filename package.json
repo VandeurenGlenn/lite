@@ -7,6 +7,10 @@
 		"exports"
 	],
 	"exports": {
+		"./assigned-elements": {
+			"import": "./exports/assigned-elements.js",
+			"types": "./exports/decorators/assigned-elements.d.ts"
+		},
 		"./custom-element": {
 			"import": "./exports/custom-element.js",
 			"types": "./exports/decorators/custom-element.d.ts"
