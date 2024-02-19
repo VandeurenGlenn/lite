@@ -5,7 +5,7 @@ export const query = (query) => {
     ctor,
     { kind, name, access, addInitializer }: ClassAccessorDecoratorContext<ElementConstructor>
   ): ClassAccessorDecoratorResult<ElementConstructor, any> {
-    if (kind !== 'accessor' && kind !== 'field') {
+    if (kind !== 'accessor') {
       addInitializer(function () {
         console.warn(`${this.localName}: @query(${query}) ${String(name)} ${kind} is not supported`)
       })
