@@ -4,7 +4,7 @@ export const queryAll = (query) => {
   return function (
     ctor,
     { kind, name, access, addInitializer }: ClassAccessorDecoratorContext<ElementConstructor>
-  ): ClassAccessorDecoratorResult<ElementConstructor, NodeListOf<any>> {
+  ): ClassAccessorDecoratorResult<ElementConstructor, Node[]> {
     if (kind !== 'accessor') {
       addInitializer(function () {
         console.warn(`${this.localName}: @query(${query}) ${String(name)} ${kind} is not supported`)
@@ -13,7 +13,8 @@ export const queryAll = (query) => {
 
     return {
       get() {
-        return this.shadowRoot ? this.shadowRoot.querySelectorAll(query) : this.querySelectorAll(query)
+        const nodeList = this.shadowRoot ? this.shadowRoot.querySelectorAll(query) : this.querySelectorAll(query)
+        return Array.from(nodeList)
       }
     }
   }
