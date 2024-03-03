@@ -3,38 +3,36 @@ import { CSSResult, css } from '@lit/reactive-element/css-tag.js'
 
 export declare interface ElementConstructor extends HTMLElement {
   styles?: CSSResult[] | CSSStyleSheet[]
-  /**
-   * willChange happens before new value is set, makes it possible to mutate the value before render
-   */
-  willChange?(propertyKey: string, value: any): Promise<any>
-  /**
-   * onChange happens after new value is set and after render
-   */
-  onChange?(propertyKey: string, value: any): void
-  /**
-   * firstRender happens after new value is set and after render
-   */
-  firstRender?(): void
 }
 
 export type StyleList = CSSResult[] | CSSStyleSheet[]
 
-class LiteElement extends HTMLElement implements ElementConstructor {
+class LiteElement extends HTMLElement {
   renderResolve
   renderedOnce = false
   rendered = new Promise((resolve) => {
     this.renderResolve = resolve
   })
+
+  _propertyToAttributeMap: Map<string, string> = new Map()
+
+  static get observedAttributes() {
+    if (this['metadata'?.['observedAttributes']]) return this['metadata'?.['observedAttributes']].values()
+    return []
+  }
+
+  attributeChangedCallback(name: string, old: string, value: string) {
+    this[name] = value
+  }
+
   constructor() {
     super()
     this.attachShadow({ mode: 'open' })
-    const klass = customElements.get(this.localName) as unknown as ElementConstructor
+    const klass = customElements.get(this.localName) as unknown as typeof LiteElement
     this.shadowRoot.adoptedStyleSheets = klass.styles ? klass.styles.map((style) => style.styleSheet ?? style) : []
 
     this.requestRender()
   }
-
-  static styles: StyleList = []
 
   render() {
     return html`<slot></slot>`
@@ -49,5 +47,19 @@ class LiteElement extends HTMLElement implements ElementConstructor {
       if (this.firstRender) this.firstRender()
     }
   }
+
+  static styles?: StyleList
+  /**
+   * willChange happens before new value is set, makes it possible to mutate the value before render
+   */
+  willChange?(propertyKey: string, value: any): Promise<any>
+  /**
+   * onChange happens after new value is set and after render
+   */
+  onChange?(propertyKey: string, value: any): void
+  /**
+   * firstRender happens after new value is set and after render
+   */
+  firstRender?(): void
 }
 export { html, LiteElement, css }

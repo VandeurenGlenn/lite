@@ -1,5 +1,5 @@
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
-import { ElementConstructor } from '../element.js'
+import { ElementConstructor, LiteElement } from '../element.js'
 
 globalThis.pubsub = globalThis.pubsub || new LittlePubSub()
 
@@ -80,7 +80,7 @@ const typeToString = (type: SupportedTypes, value: SupportedTypes) => {
 export const property = (options?: PropertyOptions) => {
   options = { ...defaultOptions, ...options }
   let totalBatchUpdates = 0
-  return function (ctor, { kind, name, addInitializer, access }: ClassAccessorDecoratorContext<ElementConstructor>) {
+  return function (ctor, { kind, name, addInitializer, access, metadata }: ClassAccessorDecoratorContext<LiteElement>) {
     const { type, reflect, attribute, renders, batches, batchDelay, consumer, provider, temporaryRender } = options
     const propertyKey = String(name)
     const attributeName = attribute || propertyKey
@@ -88,6 +88,11 @@ export const property = (options?: PropertyOptions) => {
     addInitializer(async function () {
       if (kind !== 'accessor') {
         console.warn(`${this.localName}: @property(${options}) ${propertyKey} ${kind} is not supported`)
+      }
+      if (attribute) {
+        if (!metadata['ATTRIBUTES']) metadata['ATTRIBUTES'] = new Map()
+        const attrs = metadata['observedAttributes'] as Map<string, string>
+        attrs.set(propertyKey, attributeName)
       }
       if (consumer) {
         globalThis.pubsub.subscribe(name, async (value) => {
