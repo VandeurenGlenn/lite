@@ -110,7 +110,7 @@ export const property = (options?: PropertyOptions) => {
           return set.call(this, value)
         },
         init(value: any): any {
-          if (attribute && this.hasAttribute(attributeName)) {
+          if (this.hasAttribute(attributeName)) {
             value = isBoolean ? this.hasAttribute(attributeName) : this.getAttribute(attributeName)
           }
           if (value !== undefined) set.call(this, value)
