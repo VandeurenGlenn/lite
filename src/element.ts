@@ -7,6 +7,12 @@ export declare interface ElementConstructor extends HTMLElement {
 
 export type StyleList = CSSResult[] | CSSStyleSheet[]
 
+export interface SymbolMetadataConstructor extends SymbolConstructor {
+  metadata: Symbol
+}
+// @ts-ignore
+Symbol.metadata ??= Symbol('metadata')
+
 class LiteElement extends HTMLElement {
   renderResolve
   renderedOnce = false
@@ -14,11 +20,9 @@ class LiteElement extends HTMLElement {
     this.renderResolve = resolve
   })
 
-  _propertyToAttributeMap: Map<string, string> = new Map()
-
   static get observedAttributes() {
-    if (this['metadata'?.['observedAttributes']]) return this['metadata'?.['observedAttributes']].values()
-    return []
+    // @ts-ignore
+    return this[Symbol.metadata]?.observedAttributes?.values() ?? []
   }
 
   attributeChangedCallback(name: string, old: string, value: string) {

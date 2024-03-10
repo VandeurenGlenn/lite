@@ -24,7 +24,7 @@ export type SupportedTypes =
 export type PropertyOptions = {
   type?: SupportedTypes
   reflect?: boolean
-  attribute?: string
+  attribute?: string | boolean
   renders?: boolean
   value?: string | [] | {} | number | boolean | Map<any, any> | WeakMap<any, any> | Uint8Array
   batches?: boolean
@@ -83,16 +83,17 @@ export const property = (options?: PropertyOptions) => {
   return function (ctor, { kind, name, addInitializer, access, metadata }: ClassAccessorDecoratorContext<LiteElement>) {
     const { type, reflect, attribute, renders, batches, batchDelay, consumer, provider, temporaryRender } = options
     const propertyKey = String(name)
-    const attributeName = attribute || propertyKey
+    const attributeName = attribute && typeof attribute === 'string' ? attribute : propertyKey
     const isBoolean = type === Boolean
     addInitializer(async function () {
       if (kind !== 'accessor') {
         console.warn(`${this.localName}: @property(${options}) ${propertyKey} ${kind} is not supported`)
       }
       if (attribute) {
-        if (!metadata['ATTRIBUTES']) metadata['ATTRIBUTES'] = new Map()
-        const attrs = metadata['observedAttributes'] as Map<string, string>
-        attrs.set(propertyKey, attributeName)
+        if (!metadata) metadata = {}
+        if (!metadata.observedAttributes) metadata.observedAttributes = new Map()
+        // @ts-ignore
+        metadata.observedAttributes.set(propertyKey, attributeName)
       }
       if (consumer) {
         globalThis.pubsub.subscribe(name, async (value) => {
