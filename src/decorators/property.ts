@@ -110,8 +110,9 @@ export const property = (options?: PropertyOptions) => {
           return set.call(this, value)
         },
         init(value: any): any {
-          if (value && this.hasAttribute(attributeName))
+          if (attribute && this.hasAttribute(attributeName)) {
             value = isBoolean ? this.hasAttribute(attributeName) : this.getAttribute(attributeName)
+          }
           if (value !== undefined) set.call(this, value)
           if (consumer && globalThis.pubsub.subscribers?.[name]?.value)
             set.call(this, globalThis.pubsub.subscribers[name].value)
