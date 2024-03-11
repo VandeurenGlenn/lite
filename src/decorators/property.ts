@@ -29,8 +29,10 @@ export type PropertyOptions = {
   value?: string | [] | {} | number | boolean | Map<any, any> | WeakMap<any, any> | Uint8Array
   batches?: boolean
   batchDelay?: number
-  provider?: boolean
-  consumer?: boolean
+  provider?: boolean // deprecated
+  provides?: boolean | string
+  consumer?: boolean // deprecated
+  consumes?: boolean | string
   temporaryRender?: number
 }
 
@@ -82,9 +84,17 @@ export const property = (options?: PropertyOptions) => {
   let totalBatchUpdates = 0
   return function (ctor, { kind, name, addInitializer, access, metadata }: ClassAccessorDecoratorContext<LiteElement>) {
     const { type, reflect, attribute, renders, batches, batchDelay, consumer, provider, temporaryRender } = options
+
     const propertyKey = String(name)
     const attributeName = attribute && typeof attribute === 'string' ? attribute : propertyKey
     const isBoolean = type === Boolean
+    const consumes = consumer ? attributeName : typeof options.consumes === 'boolean' ? attributeName : options.consumes
+    const provides = provider ? attributeName : typeof options.provides === 'boolean' ? attributeName : options.provides
+
+    if (options.provider) console.warn(`${propertyKey}: 'options.provider' is deprecated, use options.provides instead`)
+    if (options.consumer)
+      console.warn(`${propertyKey}: 'options.consumer' is deprecated, used options.consumes instead`)
+
     addInitializer(async function () {
       if (kind !== 'accessor') {
         console.warn(`${this.localName}: @property(${options}) ${propertyKey} ${kind} is not supported`)
@@ -95,8 +105,8 @@ export const property = (options?: PropertyOptions) => {
         // @ts-ignore
         metadata.observedAttributes.set(propertyKey, attributeName)
       }
-      if (consumer) {
-        globalThis.pubsub.subscribe(name, async (value) => {
+      if (consumes) {
+        globalThis.pubsub.subscribe(consumes, async (value) => {
           this[name] = value
         })
       }
@@ -114,8 +124,8 @@ export const property = (options?: PropertyOptions) => {
             value = isBoolean ? this.hasAttribute(attributeName) : stringToType(this.getAttribute(attributeName), type)
           }
           if (value !== undefined) set.call(this, value)
-          if (consumer && globalThis.pubsub.subscribers?.[name]?.value)
-            set.call(this, globalThis.pubsub.subscribers[name].value)
+          if (consumes && globalThis.pubsub.subscribers?.[consumes]?.value)
+            set.call(this, globalThis.pubsub.subscribers[consumes].value)
 
           return this[name]
         }
@@ -131,18 +141,18 @@ export const property = (options?: PropertyOptions) => {
         : this[`__${propertyKey}`]
         ? this[`__${propertyKey}`]
         : this[`_${propertyKey}`]
-      if (consumer && !this[`__${propertyKey}`] && globalThis.pubsub.subscribers?.[propertyKey]?.value) {
-        if (value !== globalThis.pubsub.subscribers[name].value)
-          set.call(this, globalThis.pubsub.subscribers[name].value)
-        return globalThis.pubsub.subscribers[name].value
+      if (consumes && !this[`__${propertyKey}`] && globalThis.pubsub.subscribers?.[consumes]?.value) {
+        if (value !== globalThis.pubsub.subscribers[consumes].value)
+          set.call(this, globalThis.pubsub.subscribers[consumes].value)
+        return globalThis.pubsub.subscribers[consumes].value
       }
       return value
     }
 
     async function set(value) {
       // await this.rendered
-      if (provider) {
-        globalThis.pubsub.publish(name, value)
+      if (provides) {
+        globalThis.pubsub.publish(provides, value)
       }
       if (this[`_${propertyKey}`] !== value) {
         if (this.willChange) {
