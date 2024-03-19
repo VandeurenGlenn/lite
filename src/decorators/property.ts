@@ -99,7 +99,7 @@ export const property = (options?: PropertyOptions) => {
       if (kind !== 'accessor') {
         console.warn(`${this.localName}: @property(${options}) ${propertyKey} ${kind} is not supported`)
       }
-      if (attribute || reflect) {
+      if (attribute) {
         if (!metadata) metadata = {}
         if (!metadata.observedAttributes) metadata.observedAttributes = new Map()
         // @ts-ignore
