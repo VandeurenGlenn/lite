@@ -99,7 +99,7 @@ export const property = (options?: PropertyOptions) => {
       if (kind !== 'accessor') {
         console.warn(`${this.localName}: @property(${options}) ${propertyKey} ${kind} is not supported`)
       }
-      if (attribute) {
+      if (attribute || reflect) {
         if (!metadata) metadata = {}
         if (!metadata.observedAttributes) metadata.observedAttributes = new Map()
         // @ts-ignore
@@ -134,13 +134,14 @@ export const property = (options?: PropertyOptions) => {
 
     // let timeoutChange
     function get() {
-      const value = reflect
-        ? isBoolean
-          ? this.hasAttribute(attributeName)
-          : stringToType(this.getAttribute(attributeName), type)
-        : this[`__${propertyKey}`]
-        ? this[`__${propertyKey}`]
-        : this[`_${propertyKey}`]
+      const value =
+        reflect || attribute
+          ? isBoolean
+            ? this.hasAttribute(attributeName)
+            : stringToType(this.getAttribute(attributeName), type)
+          : this[`__${propertyKey}`]
+          ? this[`__${propertyKey}`]
+          : this[`_${propertyKey}`]
       if (consumes && !this[`__${propertyKey}`] && globalThis.pubsub.subscribers?.[consumes]?.value) {
         if (value !== globalThis.pubsub.subscribers[consumes].value)
           set.call(this, globalThis.pubsub.subscribers[consumes].value)
@@ -158,7 +159,7 @@ export const property = (options?: PropertyOptions) => {
         if (this.willChange) {
           this[`__${propertyKey}`] = await this.willChange(name, value)
         }
-        if (reflect)
+        if (reflect || attribute)
           if (isBoolean)
             if (value || this[`__${propertyKey}`]) this.setAttribute(attributeName, '')
             else this.removeAttribute(attributeName)
