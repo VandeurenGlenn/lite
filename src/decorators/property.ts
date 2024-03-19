@@ -134,14 +134,13 @@ export const property = (options?: PropertyOptions) => {
 
     // let timeoutChange
     function get() {
-      const value =
-        reflect || attribute
-          ? isBoolean
-            ? this.hasAttribute(attributeName)
-            : stringToType(this.getAttribute(attributeName), type)
-          : this[`__${propertyKey}`]
-          ? this[`__${propertyKey}`]
-          : this[`_${propertyKey}`]
+      const value = reflect
+        ? isBoolean
+          ? this.hasAttribute(attributeName)
+          : stringToType(this.getAttribute(attributeName), type)
+        : this[`__${propertyKey}`]
+        ? this[`__${propertyKey}`]
+        : this[`_${propertyKey}`]
       if (consumes && !this[`__${propertyKey}`] && globalThis.pubsub.subscribers?.[consumes]?.value) {
         if (value !== globalThis.pubsub.subscribers[consumes].value)
           set.call(this, globalThis.pubsub.subscribers[consumes].value)
