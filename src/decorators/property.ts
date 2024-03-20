@@ -83,8 +83,9 @@ export const property = (options?: PropertyOptions) => {
   options = { ...defaultOptions, ...options }
   let totalBatchUpdates = 0
   return function (ctor, { kind, name, addInitializer, access, metadata }: ClassAccessorDecoratorContext<LiteElement>) {
-    const { type, reflect, attribute, renders, batches, batchDelay, consumer, provider, temporaryRender } = options
+    const { type, reflect, renders, batches, batchDelay, consumer, provider, temporaryRender } = options
 
+    const attribute = options.attribute ?? reflect
     const propertyKey = String(name)
     const attributeName = attribute && typeof attribute === 'string' ? attribute : propertyKey
     const isBoolean = type === Boolean
@@ -134,7 +135,7 @@ export const property = (options?: PropertyOptions) => {
 
     // let timeoutChange
     function get() {
-      const value = reflect
+      const value = attribute
         ? isBoolean
           ? this.hasAttribute(attributeName)
           : stringToType(this.getAttribute(attributeName), type)
@@ -158,7 +159,7 @@ export const property = (options?: PropertyOptions) => {
         if (this.willChange) {
           this[`__${propertyKey}`] = await this.willChange(name, value)
         }
-        if (reflect || attribute)
+        if (attribute)
           if (isBoolean)
             if (value || this[`__${propertyKey}`]) this.setAttribute(attributeName, '')
             else this.removeAttribute(attributeName)
