@@ -26,7 +26,7 @@ class LiteElement extends HTMLElement {
   }
 
   attributeChangedCallback(name: string, old: string, value: string) {
-    this[name] = value
+    if (this[name] !== value || old !== value) this[name] = value
   }
 
   constructor() {

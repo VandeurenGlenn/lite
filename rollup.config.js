@@ -10,11 +10,13 @@ const input = (await readdir('src', { recursive: true }))
   .map((file) => join('src', file))
   .filter((file) => file.endsWith('.ts'))
 
-export default {
-  input,
-  output: {
-    format: 'es',
-    dir: 'exports'
-  },
-  plugins: [typescript(), autoExports(), size(), resolve(), terser()]
-}
+export default [
+  {
+    input,
+    output: {
+      format: 'es',
+      dir: 'exports'
+    },
+    plugins: [typescript(), autoExports(), size(), terser()]
+  }
+]
