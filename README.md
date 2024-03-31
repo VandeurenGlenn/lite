@@ -10,10 +10,10 @@ npm i @vandeurenglenn/lite
 
 ```js
 import { LiteElement, property, query, state, html, css, customElement } from '@vandeurenglenn/lite'
-@customElement
+@customElement('some-element')
 class SomeElement extends LiteElement {
   @property()
-  items = ['hello', 'world']
+  accessor items = ['hello', 'world']
 
   render() {
     return html`${this.items.map((item) => html`${item}`)}`
@@ -32,10 +32,10 @@ import { LiteElement, property, html, customElement } from '@vandeurenglenn/lite
 @customElement
 class ConsumerEl extends LiteElement {
   @property({ consumes: true, type: Array })
-  items
+  accessor items
 
   @property({ consumes: 'someunique-id', type: Boolean })
-  drawerOpen
+  accessor drawerOpen
 
   render() {
     return html`${this.items.map((item) => html`${item}`)}`
@@ -50,10 +50,10 @@ import { LiteElement, property, customElement } from '@vandeurenglenn/lite'
 @customElement
 class ProviderEl extends LiteElement {
   @property({ provides: true })
-  items = ['hello', 'world']
+  accessor items = ['hello', 'world']
 
   @property({ provides: 'someunique-id', type: Boolean })
-  drawerOpen = false
+  accessor drawerOpen = false
 }
 ```
 
@@ -64,7 +64,7 @@ import { LiteElement, property, customElement } from '@vandeurenglenn/lite'
 @customElement
 class ProviderEl extends LiteElement {
   @property({ type: Boolean })
-  drawerOpen = false
+  accessor drawerOpen = false
 
   // runs after render
   onChange(propertyKey, value) {}
@@ -78,7 +78,7 @@ import { LiteElement, property, customElement } from '@vandeurenglenn/lite'
 @customElement
 class ProviderEl extends LiteElement {
   @property({ type: Boolean })
-  drawerOpen = false
+  accessor drawerOpen = false
 
   // runs before render
   willChange(propertyKey, value) {
