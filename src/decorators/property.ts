@@ -139,10 +139,10 @@ export const property = (options?: PropertyOptions) => {
         ? isBoolean
           ? this.hasAttribute(attributeName)
           : stringToType(this.getAttribute(attributeName), type)
-        : this[`__${propertyKey}`]
-        ? this[`__${propertyKey}`]
-        : this[`_${propertyKey}`]
-      if (consumes && !this[`__${propertyKey}`] && globalThis.pubsub.subscribers?.[consumes]?.value) {
+        : this[`__lite_${propertyKey}`]
+        ? this[`__lite_${propertyKey}`]
+        : this[`_lite_${propertyKey}`]
+      if (consumes && !this[`__lite_${propertyKey}`] && globalThis.pubsub.subscribers?.[consumes]?.value) {
         if (value !== globalThis.pubsub.subscribers[consumes].value)
           set.call(this, globalThis.pubsub.subscribers[consumes].value)
         return globalThis.pubsub.subscribers[consumes].value
@@ -155,24 +155,24 @@ export const property = (options?: PropertyOptions) => {
       if (provides) {
         globalThis.pubsub.publish(provides, value)
       }
-      if (this[`_${propertyKey}`] !== value) {
+      if (this[`_lite_${propertyKey}`] !== value) {
         if (this.willChange) {
-          this[`__${propertyKey}`] = await this.willChange(name, value)
+          this[`__lite_${propertyKey}`] = await this.willChange(name, value)
         }
         if (attribute)
           if (isBoolean)
-            if (value || this[`__${propertyKey}`]) this.setAttribute(attributeName, '')
+            if (value || this[`__lite_${propertyKey}`]) this.setAttribute(attributeName, '')
             else this.removeAttribute(attributeName)
-          else if (value || this[`__${propertyKey}`])
-            this.setAttribute(attributeName, typeToString(type, this[`__${propertyKey}`] ?? value))
+          else if (value || this[`__lite_${propertyKey}`])
+            this.setAttribute(attributeName, typeToString(type, this[`__lite_${propertyKey}`] ?? value))
           else this.removeAttribute(attributeName)
         // only store data ourselves when really needed
-        else this[`_${propertyKey}`] = value
+        else this[`_lite_${propertyKey}`] = value
 
         const performUpdate = () => {
           totalBatchUpdates = 0
           if (this.requestRender && renders) this.requestRender()
-          if (this.onChange) this.onChange(name, this[`__${propertyKey}`] ?? value)
+          if (this.onChange) this.onChange(name, this[`__lite_${propertyKey}`] ?? value)
         }
 
         if (batches) {
