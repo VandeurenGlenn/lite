@@ -2,9 +2,9 @@ import LittlePubSub from '@vandeurenglenn/little-pubsub'
 import { LiteElement } from '../element.js'
 import { PropertyOptions } from '../types.js'
 import { stringToType, typeToString } from '../helpers.js'
-import { Signal } from 'signal-polyfill'
 
 globalThis.pubsub = globalThis.pubsub || new LittlePubSub()
+let Signal
 
 /**
  * @example
@@ -46,8 +46,7 @@ export const property = (options?: PropertyOptions) => {
     let watcher
 
     if (options.provider) console.warn(`${propertyKey}: 'options.provider' is deprecated, use options.provides instead`)
-    if (options.consumer)
-      console.warn(`${propertyKey}: 'options.consumer' is deprecated, used options.consumes instead`)
+    if (options.consumer) console.warn(`${propertyKey}: 'options.consumer' is deprecated, use options.consumes instead`)
 
     addInitializer(async function () {
       if (kind !== 'accessor') {
@@ -61,6 +60,8 @@ export const property = (options?: PropertyOptions) => {
       }
 
       if (signal) {
+        const importee = await import('signal-polyfill')
+        Signal = importee.Signal
         watcher = new Signal.subtle.Watcher(() => this.requestRender())
         const symbol = new Signal.Computed(() => {
           watcher.watch(symbol)
