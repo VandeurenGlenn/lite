@@ -19,6 +19,10 @@
 			"import": "./exports/element.js",
 			"types": "./exports/element.d.ts"
 		},
+		"./helpers": {
+			"import": "./exports/helpers.js",
+			"types": "./exports/helpers.d.ts"
+		},
 		".": {
 			"import": "./exports/index.js",
 			"types": "./exports/index.d.ts"
@@ -35,9 +39,17 @@
 			"import": "./exports/query.js",
 			"types": "./exports/decorators/query.d.ts"
 		},
+		"./signal": {
+			"import": "./exports/signal.js",
+			"types": "./exports/decorators/signal.d.ts"
+		},
 		"./state": {
 			"import": "./exports/state.js",
 			"types": "./exports/decorators/state.d.ts"
+		},
+		"./types": {
+			"import": "./exports/types.js",
+			"types": "./exports/types.d.ts"
 		},
 		"./update": {
 			"import": "./exports/update.js",
@@ -54,7 +66,8 @@
 	"dependencies": {
 		"@vandeurenglenn/little-pubsub": "^1.4.7",
 		"lit": "^3.1.2",
-		"lit-html": "^3.1.2"
+		"lit-html": "^3.1.2",
+		"signal-polyfill": "^0.1.0"
 	},
 	"devDependencies": {
 		"@rollup/plugin-terser": "^0.4.4",

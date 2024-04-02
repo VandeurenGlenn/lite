@@ -1,40 +1,10 @@
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
-import { ElementConstructor, LiteElement } from '../element.js'
+import { LiteElement } from '../element.js'
+import { PropertyOptions } from '../types.js'
+import { stringToType, typeToString } from '../helpers.js'
+import { Signal } from 'signal-polyfill'
 
 globalThis.pubsub = globalThis.pubsub || new LittlePubSub()
-
-export type SupportedTypes =
-  | String
-  | Boolean
-  | Object
-  | Array<any>
-  | Number
-  | Map<any, any>
-  | WeakMap<any, any>
-  | Uint8Array
-
-/**
- * @example
- * ```js
-
-@@ -22,19 +21,8 @@ export type SupportedTypes =
- *
- * ```
- */
-export type PropertyOptions = {
-  type?: SupportedTypes
-  reflect?: boolean
-  attribute?: string | boolean
-  renders?: boolean
-  value?: string | [] | {} | number | boolean | Map<any, any> | WeakMap<any, any> | Uint8Array
-  batches?: boolean
-  batchDelay?: number
-  provider?: boolean // deprecated
-  provides?: boolean | string
-  consumer?: boolean // deprecated
-  consumes?: boolean | string
-  temporaryRender?: number
-}
 
 /**
  * @example
@@ -55,30 +25,9 @@ const defaultOptions = {
   temporaryRender: 10
 }
 
-const stringToType = (string, type) => {
-  let value: SupportedTypes = string
-  if (type === Boolean) value = Boolean(string === 'true')
-  else if (type === Number) value = Number(string)
-  else if (type === Uint8Array) value = new Uint8Array(string.split(','))
-  else if (type === Array || type === Object || type === WeakMap || type === Map || type === Uint8Array) {
-    value = JSON.parse(string)
-    if (type === Map) value = new Map(string)
-    if (type === WeakMap) value = new WeakMap(string)
-  }
-  return value
+const setupSignal = (signal, value) => {
+  return signal instanceof Signal.State ? signal : new Signal.State(value)
 }
-
-const typeToString = (type: SupportedTypes, value: SupportedTypes) => {
-  let string = value
-  if (type === Boolean || type === Number || type === Uint8Array) return value.toString()
-  else if (type === Array || type === Object || type === WeakMap || type === Map || type === Uint8Array) {
-    let array
-    if (type === Map || type === WeakMap) array = Object(value).entries()
-    string = JSON.stringify(array)
-  }
-  return string
-}
-
 export const property = (options?: PropertyOptions) => {
   options = { ...defaultOptions, ...options }
   let totalBatchUpdates = 0
@@ -86,11 +35,15 @@ export const property = (options?: PropertyOptions) => {
     const { type, reflect, renders, batches, batchDelay, consumer, provider, temporaryRender } = options
 
     const attribute = options.attribute ?? reflect
+
     const propertyKey = String(name)
     const attributeName = attribute && typeof attribute === 'string' ? attribute : propertyKey
     const isBoolean = type === Boolean
     const consumes = consumer ? attributeName : typeof options.consumes === 'boolean' ? attributeName : options.consumes
     const provides = provider ? attributeName : typeof options.provides === 'boolean' ? attributeName : options.provides
+
+    let signal
+    let watcher
 
     if (options.provider) console.warn(`${propertyKey}: 'options.provider' is deprecated, use options.provides instead`)
     if (options.consumer)
@@ -105,6 +58,14 @@ export const property = (options?: PropertyOptions) => {
         if (!metadata.observedAttributes) metadata.observedAttributes = new Map()
         // @ts-ignore
         metadata.observedAttributes.set(propertyKey, attributeName)
+      }
+
+      if (signal) {
+        watcher = new Signal.subtle.Watcher(() => this.requestRender())
+        const symbol = new Signal.Computed(() => {
+          watcher.watch(symbol)
+        })
+        symbol.get()
       }
       if (consumes) {
         globalThis.pubsub.subscribe(consumes, async (value) => {
@@ -121,6 +82,9 @@ export const property = (options?: PropertyOptions) => {
           return set.call(this, value)
         },
         init(value: any): any {
+          if (options.signal && !signal) {
+            setupSignal(options.signal, value)
+          }
           if (this.hasAttribute(attributeName)) {
             value = isBoolean ? this.hasAttribute(attributeName) : stringToType(this.getAttribute(attributeName), type)
           }
@@ -147,6 +111,12 @@ export const property = (options?: PropertyOptions) => {
           set.call(this, globalThis.pubsub.subscribers[consumes].value)
         return globalThis.pubsub.subscribers[consumes].value
       }
+      if (signal && signal.get() !== value) {
+        const value = signal.get()
+        set.call(this, value)
+        return value
+      }
+
       return value
     }
 
@@ -158,6 +128,9 @@ export const property = (options?: PropertyOptions) => {
       if (this[`_lite_${propertyKey}`] !== value) {
         if (this.willChange) {
           this[`__lite_${propertyKey}`] = await this.willChange(name, value)
+        }
+        if (signal) {
+          signal.set(this[`__lite_${propertyKey}`] ?? value)
         }
         if (attribute)
           if (isBoolean)
