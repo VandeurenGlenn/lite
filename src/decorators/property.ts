@@ -64,7 +64,6 @@ export const property = (options?: PropertyOptions) => {
         const symbol = new Signal.Computed(() => {
           watcher.watch(symbol)
         })
-        symbol.get()
       }
       if (consumes) {
         globalThis.pubsub.subscribe(consumes, async (value) => {
@@ -81,16 +80,18 @@ export const property = (options?: PropertyOptions) => {
           return set.call(this, value)
         },
         init(value: any): any {
-          if (options.signal && !signal) {
-            setupSignal(options.signal, value)
-          }
           if (this.hasAttribute(attributeName)) {
             value = isBoolean ? this.hasAttribute(attributeName) : stringToType(this.getAttribute(attributeName), type)
           }
-          if (value !== undefined) set.call(this, value)
+          if (options.signal && !signal) {
+            setupSignal(options.signal, value)
+            const signal_value = signal.get()
+            if (signal_value) value = signal_value
+          }
           if (consumes && globalThis.pubsub.subscribers?.[consumes]?.value)
-            set.call(this, globalThis.pubsub.subscribers[consumes].value)
+            value = globalThis.pubsub.subscribers[consumes].value
 
+          if (value !== undefined) set.call(this, value)
           return this[name]
         }
       }
