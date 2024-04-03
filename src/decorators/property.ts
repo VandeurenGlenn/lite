@@ -2,9 +2,9 @@ import LittlePubSub from '@vandeurenglenn/little-pubsub'
 import { LiteElement } from '../element.js'
 import { PropertyOptions } from '../types.js'
 import { stringToType, typeToString } from '../helpers.js'
+import { Signal } from 'signal-polyfill'
 
 globalThis.pubsub = globalThis.pubsub || new LittlePubSub()
-let Signal
 
 /**
  * @example
@@ -25,7 +25,7 @@ const defaultOptions = {
   temporaryRender: 10
 }
 
-const setupSignal = (signal, value) => {
+const setupSignal = async (signal, value) => {
   return signal instanceof Signal.State ? signal : new Signal.State(value)
 }
 export const property = (options?: PropertyOptions) => {
@@ -48,7 +48,7 @@ export const property = (options?: PropertyOptions) => {
     if (options.provider) console.warn(`${propertyKey}: 'options.provider' is deprecated, use options.provides instead`)
     if (options.consumer) console.warn(`${propertyKey}: 'options.consumer' is deprecated, use options.consumes instead`)
 
-    addInitializer(async function () {
+    addInitializer(function () {
       if (kind !== 'accessor') {
         console.warn(`${this.localName}: @property(${options}) ${propertyKey} ${kind} is not supported`)
       }
@@ -59,9 +59,7 @@ export const property = (options?: PropertyOptions) => {
         metadata.observedAttributes.set(propertyKey, attributeName)
       }
 
-      if (signal) {
-        const importee = await import('signal-polyfill')
-        Signal = importee.Signal
+      if (signal && !Signal) {
         watcher = new Signal.subtle.Watcher(() => this.requestRender())
         const symbol = new Signal.Computed(() => {
           watcher.watch(symbol)
@@ -82,7 +80,7 @@ export const property = (options?: PropertyOptions) => {
         set(value: any) {
           return set.call(this, value)
         },
-        init(value: any): any {
+        init(value: any): Promise<any> {
           if (options.signal && !signal) {
             setupSignal(options.signal, value)
           }
