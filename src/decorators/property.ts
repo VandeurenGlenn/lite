@@ -80,7 +80,7 @@ export const property = (options?: PropertyOptions) => {
         set(value: any) {
           return set.call(this, value)
         },
-        init(value: any): Promise<any> {
+        init(value: any): any {
           if (options.signal && !signal) {
             setupSignal(options.signal, value)
           }
