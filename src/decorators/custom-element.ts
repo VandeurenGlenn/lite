@@ -3,7 +3,14 @@ const hyphenate = (string) => string.replace(/([a-zA-Z])(?=[A-Z])/g, '$1-').toLo
 export function customElement(name?: string) {
   return (klass: Function, { addInitializer }) => {
     addInitializer(function () {
-      customElements.define(name ?? hyphenate(klass.name), this)
+      const tag = name ?? hyphenate(klass.name)
+      if (customElements.get(tag)) {
+        console.warn(`possibly importing double code or ${name} aleady taken`);
+        return
+      }
+      customElements.define(tag, this)
+      
+      
     })
   }
 }
