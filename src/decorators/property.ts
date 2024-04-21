@@ -124,9 +124,10 @@ export const property = (options?: PropertyOptions) => {
         if (batches) {
           if (totalBatchUpdates === temporaryRender) {
             performUpdate()
+          } else {
+            if (this[`_${propertyKey}_timeout`]) clearTimeout(this[`_${propertyKey}_timeout`])
+            this[`_${propertyKey}_timeout`] = setTimeout(performUpdate, batchDelay)
           }
-          if (this[`_${propertyKey}_timeout`]) clearTimeout(this[`_${propertyKey}_timeout`])
-          this[`_${propertyKey}_timeout`] = setTimeout(performUpdate, batchDelay)
         } else {
           performUpdate()
         }
