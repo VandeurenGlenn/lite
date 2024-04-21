@@ -1,5 +1,3 @@
-import { Signal } from 'signal-polyfill'
-
 export type SupportedTypes =
   | String
   | Boolean
@@ -30,6 +28,5 @@ export type PropertyOptions = {
   provides?: boolean | string
   consumer?: boolean // deprecated
   consumes?: boolean | string
-  signal?: boolean | Signal.State<SupportedTypes>
   temporaryRender?: number
 }

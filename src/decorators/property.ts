@@ -2,7 +2,6 @@ import LittlePubSub from '@vandeurenglenn/little-pubsub'
 import { LiteElement } from '../element.js'
 import { PropertyOptions } from '../types.js'
 import { stringToType, typeToString } from '../helpers.js'
-import { Signal } from 'signal-polyfill'
 
 globalThis.pubsub = globalThis.pubsub || new LittlePubSub()
 
@@ -25,9 +24,6 @@ const defaultOptions = {
   temporaryRender: 10
 }
 
-const setupSignal = async (signal, value) => {
-  return signal instanceof Signal.State ? signal : new Signal.State(value)
-}
 export const property = (options?: PropertyOptions) => {
   options = { ...defaultOptions, ...options }
   let totalBatchUpdates = 0
@@ -41,8 +37,6 @@ export const property = (options?: PropertyOptions) => {
     const isBoolean = type === Boolean
     const consumes = consumer ? attributeName : typeof options.consumes === 'boolean' ? attributeName : options.consumes
     const provides = provider ? attributeName : typeof options.provides === 'boolean' ? attributeName : options.provides
-
-    let signal
     let watcher
 
     if (options.provider) console.warn(`${propertyKey}: 'options.provider' is deprecated, use options.provides instead`)
@@ -57,13 +51,6 @@ export const property = (options?: PropertyOptions) => {
         if (!metadata.observedAttributes) metadata.observedAttributes = new Map()
         // @ts-ignore
         metadata.observedAttributes.set(propertyKey, attributeName)
-      }
-
-      if (signal && !Signal) {
-        watcher = new Signal.subtle.Watcher(() => this.requestRender())
-        const symbol = new Signal.Computed(() => {
-          watcher.watch(symbol)
-        })
       }
       if (consumes) {
         globalThis.pubsub.subscribe(consumes, async (value) => {
@@ -82,11 +69,6 @@ export const property = (options?: PropertyOptions) => {
         init(value: any): any {
           if (this.hasAttribute(attributeName)) {
             value = isBoolean ? this.hasAttribute(attributeName) : stringToType(this.getAttribute(attributeName), type)
-          }
-          if (options.signal && !signal) {
-            setupSignal(options.signal, value)
-            const signal_value = signal.get()
-            if (signal_value) value = signal_value
           }
           if (consumes && globalThis.pubsub.subscribers?.[consumes]?.value)
             value = globalThis.pubsub.subscribers[consumes].value
@@ -111,12 +93,6 @@ export const property = (options?: PropertyOptions) => {
           set.call(this, globalThis.pubsub.subscribers[consumes].value)
         return globalThis.pubsub.subscribers[consumes].value
       }
-      if (signal && signal.get() !== value) {
-        const value = signal.get()
-        set.call(this, value)
-        return value
-      }
-
       return value
     }
 
@@ -128,9 +104,6 @@ export const property = (options?: PropertyOptions) => {
       if (this[`_lite_${propertyKey}`] !== value) {
         if (this.willChange) {
           this[`__lite_${propertyKey}`] = await this.willChange(name, value)
-        }
-        if (signal) {
-          signal.set(this[`__lite_${propertyKey}`] ?? value)
         }
         if (attribute)
           if (isBoolean)
