@@ -13,8 +13,9 @@ export const queryAll = (query) => {
 
     return {
       get() {
-        const nodeList = this.shadowRoot ? this.shadowRoot.querySelectorAll(query) : this.querySelectorAll(query)
-        return Array.from(nodeList)
+        let queried = this.shadowRoot ? this.shadowRoot.querySelectorAll(query) : this.querySelectorAll(query)
+        if (!queried) queried = this.querySelectorAll(query)
+        return Array.from(queried)
       }
     }
   }

@@ -12,7 +12,9 @@ export const query = (query) => {
     }
     return {
       get() {
-        return this.shadowRoot ? this.shadowRoot.querySelector(query) : this.querySelector(query)
+        const queried = this.shadowRoot ? this.shadowRoot.querySelector(query) : this.querySelector(query)
+        if (!queried) return this.querySelector(query)
+        return queried
       }
     }
   }
