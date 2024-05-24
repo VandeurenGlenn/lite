@@ -27,6 +27,10 @@
 			"import": "./exports/index.js",
 			"types": "./exports/index.d.ts"
 		},
+		"./map": {
+			"import": "./exports/map.js",
+			"types": "./exports/directives/map.d.ts"
+		},
 		"./property": {
 			"import": "./exports/property.js",
 			"types": "./exports/decorators/property.d.ts"
