@@ -1,6 +1,8 @@
 import { html, render } from 'lit-html'
 import { CSSResult, css } from '@lit/reactive-element/css-tag.js'
 
+export { CSSResult }
+
 export declare interface ElementConstructor extends HTMLElement {
   styles?: CSSResult[] | CSSStyleSheet[]
 }
