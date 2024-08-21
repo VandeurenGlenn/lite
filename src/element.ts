@@ -16,11 +16,12 @@ export interface SymbolMetadataConstructor extends SymbolConstructor {
 Symbol.metadata ??= Symbol('metadata')
 
 class LiteElement extends HTMLElement {
-  renderResolve
-  renderedOnce = false
-  rendered = new Promise((resolve) => {
+  private renderResolve: (value: boolean) => void
+  private renderedOnce = false
+  private rendered = new Promise<boolean>((resolve) => {
     this.renderResolve = resolve
   })
+  private attributeChangeTimeout: number | any
 
   static get observedAttributes() {
     // @ts-ignore
@@ -28,7 +29,19 @@ class LiteElement extends HTMLElement {
   }
 
   attributeChangedCallback(name: string, old: string, value: string) {
-    if (this[name] !== value || old !== value) this[name] = value
+    if (this[name] !== value || old !== value) {
+      this[name] = value
+      if (this.attributeChangeTimeout) {
+        clearTimeout(this.attributeChangeTimeout)
+      }
+      this.attributeChangeTimeout = setTimeout(
+        () => {
+          this.requestRender()
+        },
+        // make sure to render asap if it's the first render
+        this.renderedOnce ? 150 : 0
+      )
+    }
   }
 
   constructor() {

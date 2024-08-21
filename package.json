@@ -11,7 +11,15 @@
 			"import": "./exports/assigned-elements.js",
 			"types": "./exports/decorators/assigned-elements.d.ts"
 		},
+		"./assigned-elements.js": {
+			"import": "./exports/assigned-elements.js",
+			"types": "./exports/decorators/assigned-elements.d.ts"
+		},
 		"./custom-element": {
+			"import": "./exports/custom-element.js",
+			"types": "./exports/decorators/custom-element.d.ts"
+		},
+		"./custom-element.js": {
 			"import": "./exports/custom-element.js",
 			"types": "./exports/decorators/custom-element.d.ts"
 		},
@@ -19,7 +27,15 @@
 			"import": "./exports/element.js",
 			"types": "./exports/element.d.ts"
 		},
+		"./element.js": {
+			"import": "./exports/element.js",
+			"types": "./exports/element.d.ts"
+		},
 		"./helpers": {
+			"import": "./exports/helpers.js",
+			"types": "./exports/helpers.d.ts"
+		},
+		"./helpers.js": {
 			"import": "./exports/helpers.js",
 			"types": "./exports/helpers.d.ts"
 		},
@@ -27,7 +43,15 @@
 			"import": "./exports/index.js",
 			"types": "./exports/index.d.ts"
 		},
+		"./index.js": {
+			"import": "./exports/index.js",
+			"types": "./exports/index.d.ts"
+		},
 		"./map": {
+			"import": "./exports/map.js",
+			"types": "./exports/directives/map.d.ts"
+		},
+		"./map.js": {
 			"import": "./exports/map.js",
 			"types": "./exports/directives/map.d.ts"
 		},
@@ -35,7 +59,15 @@
 			"import": "./exports/property.js",
 			"types": "./exports/decorators/property.d.ts"
 		},
+		"./property.js": {
+			"import": "./exports/property.js",
+			"types": "./exports/decorators/property.d.ts"
+		},
 		"./query-all": {
+			"import": "./exports/query-all.js",
+			"types": "./exports/decorators/query-all.d.ts"
+		},
+		"./query-all.js": {
 			"import": "./exports/query-all.js",
 			"types": "./exports/decorators/query-all.d.ts"
 		},
@@ -43,7 +75,15 @@
 			"import": "./exports/query.js",
 			"types": "./exports/decorators/query.d.ts"
 		},
+		"./query.js": {
+			"import": "./exports/query.js",
+			"types": "./exports/decorators/query.d.ts"
+		},
 		"./signal": {
+			"import": "./exports/signal.js",
+			"types": "./exports/decorators/signal.d.ts"
+		},
+		"./signal.js": {
 			"import": "./exports/signal.js",
 			"types": "./exports/decorators/signal.d.ts"
 		},
@@ -51,11 +91,23 @@
 			"import": "./exports/state.js",
 			"types": "./exports/decorators/state.d.ts"
 		},
+		"./state.js": {
+			"import": "./exports/state.js",
+			"types": "./exports/decorators/state.d.ts"
+		},
 		"./types": {
 			"import": "./exports/types.js",
 			"types": "./exports/types.d.ts"
 		},
+		"./types.js": {
+			"import": "./exports/types.js",
+			"types": "./exports/types.d.ts"
+		},
 		"./update": {
+			"import": "./exports/update.js",
+			"types": "./exports/decorators/update.d.ts"
+		},
+		"./update.js": {
 			"import": "./exports/update.js",
 			"types": "./exports/decorators/update.d.ts"
 		}
