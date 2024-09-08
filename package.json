@@ -120,16 +120,16 @@
 	"author": "",
 	"license": "MIT",
 	"dependencies": {
-		"@vandeurenglenn/little-pubsub": "^1.4.7",
-		"lit": "^3.1.2",
-		"lit-html": "^3.1.2"
+		"@vandeurenglenn/little-pubsub": "^1.4.9",
+		"lit": "^3.2.0",
+		"lit-html": "^3.2.0"
 	},
 	"devDependencies": {
 		"@rollup/plugin-terser": "^0.4.4",
 		"@rollup/plugin-typescript": "^11.1.6",
-		"rollup": "^4.9.6",
-		"rollup-plugin-auto-exports": "^1.0.4",
+		"rollup": "^4.21.2",
+		"rollup-plugin-auto-exports": "^1.0.8",
 		"rollup-plugin-size": "^0.3.1",
-		"tslib": "^2.6.2"
+		"tslib": "^2.7.0"
 	}
 }
