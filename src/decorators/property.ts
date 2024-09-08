@@ -37,7 +37,6 @@ export const property = (options?: PropertyOptions) => {
     const isBoolean = type === Boolean
     const consumes = consumer ? attributeName : typeof options.consumes === 'boolean' ? attributeName : options.consumes
     const provides = provider ? attributeName : typeof options.provides === 'boolean' ? attributeName : options.provides
-    let watcher
 
     if (options.provider) console.warn(`${propertyKey}: 'options.provider' is deprecated, use options.provides instead`)
     if (options.consumer) console.warn(`${propertyKey}: 'options.consumer' is deprecated, use options.consumes instead`)
@@ -70,10 +69,7 @@ export const property = (options?: PropertyOptions) => {
           if (this.hasAttribute(attributeName)) {
             value = isBoolean ? this.hasAttribute(attributeName) : stringToType(this.getAttribute(attributeName), type)
           }
-          if (consumes && globalThis.pubsub.subscribers?.[consumes]?.value)
-            value = globalThis.pubsub.subscribers[consumes].value
-
-          if (value !== undefined) set.call(this, value)
+          if (value !== undefined && !consumes) set.call(this, value)
           return this[name]
         }
       }
@@ -88,11 +84,11 @@ export const property = (options?: PropertyOptions) => {
         : this[`__lite_${propertyKey}`]
         ? this[`__lite_${propertyKey}`]
         : this[`_lite_${propertyKey}`]
-      if (consumes && !this[`__lite_${propertyKey}`] && globalThis.pubsub.subscribers?.[consumes]?.value) {
-        if (value !== globalThis.pubsub.subscribers[consumes].value)
-          set.call(this, globalThis.pubsub.subscribers[consumes].value)
-        return globalThis.pubsub.subscribers[consumes].value
-      }
+      // if (consumes && !this[`__lite_${propertyKey}`] && globalThis.pubsub.subscribers?.[consumes]?.value) {
+      //   if (value !== globalThis.pubsub.subscribers[consumes].value)
+      //     set.call(this, globalThis.pubsub.subscribers[consumes].value)
+      //   return globalThis.pubsub.subscribers[consumes].value
+      // }
       return value
     }
 
