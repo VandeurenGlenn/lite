@@ -53,16 +53,20 @@ class LiteElement extends HTMLElement {
     this.requestRender()
   }
 
+  connectedCallback() {
+    this.renderedOnce = true
+    this.renderResolve(true)
+    if (this.firstRender) {
+      this.firstRender()
+    }
+  }
+
   render() {
     return html`<slot></slot>`
   }
 
   requestRender() {
     render(this.render(), this.shadowRoot)
-    if (!this.renderedOnce) {
-      this.renderResolve(true)
-      this.renderedOnce = true
-    }
   }
 
   static styles?: StyleList

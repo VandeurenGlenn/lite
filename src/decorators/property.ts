@@ -113,9 +113,7 @@ export const property = (options?: PropertyOptions) => {
 
         const performUpdate = () => {
           totalBatchUpdates = 0
-          const renderedOnce = this.renderedOnce
           if (this.requestRender && renders) this.requestRender()
-          if (this.firstRender && !renderedOnce) this.firstRender()
           if (this.onChange) this.onChange(name, this[`__lite_${propertyKey}`] ?? value)
         }
 
