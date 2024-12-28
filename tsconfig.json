@@ -6,8 +6,7 @@
     "moduleResolution": "NodeNext",
     "declaration": true,
     "experimentalDecorators": true,
-    "useDefineForClassFields": false,
-    "types": ["node"]
+    "useDefineForClassFields": false
   },
   "include": ["./src/**/*"]
 }

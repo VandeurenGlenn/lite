@@ -79,22 +79,6 @@
 			"import": "./exports/query.js",
 			"types": "./exports/decorators/query.d.ts"
 		},
-		"./signal": {
-			"import": "./exports/signal.js",
-			"types": "./exports/decorators/signal.d.ts"
-		},
-		"./signal.js": {
-			"import": "./exports/signal.js",
-			"types": "./exports/decorators/signal.d.ts"
-		},
-		"./state": {
-			"import": "./exports/state.js",
-			"types": "./exports/decorators/state.d.ts"
-		},
-		"./state.js": {
-			"import": "./exports/state.js",
-			"types": "./exports/decorators/state.d.ts"
-		},
 		"./types": {
 			"import": "./exports/types.js",
 			"types": "./exports/types.d.ts"
@@ -102,14 +86,6 @@
 		"./types.js": {
 			"import": "./exports/types.js",
 			"types": "./exports/types.d.ts"
-		},
-		"./update": {
-			"import": "./exports/update.js",
-			"types": "./exports/decorators/update.d.ts"
-		},
-		"./update.js": {
-			"import": "./exports/update.js",
-			"types": "./exports/decorators/update.d.ts"
 		}
 	},
 	"scripts": {
@@ -120,16 +96,16 @@
 	"author": "",
 	"license": "MIT",
 	"dependencies": {
-		"@vandeurenglenn/little-pubsub": "^1.4.9",
-		"lit": "^3.2.0",
-		"lit-html": "^3.2.0"
+		"@vandeurenglenn/little-pubsub": "^1.5.1",
+		"lit": "^3.2.1",
+		"lit-html": "^3.2.1"
 	},
 	"devDependencies": {
 		"@rollup/plugin-terser": "^0.4.4",
-		"@rollup/plugin-typescript": "^11.1.6",
-		"rollup": "^4.21.2",
+		"@rollup/plugin-typescript": "^12.1.2",
+		"rollup": "^4.29.1",
 		"rollup-plugin-auto-exports": "^1.0.8",
 		"rollup-plugin-size": "^0.3.1",
-		"tslib": "^2.7.0"
+		"tslib": "^2.8.1"
 	}
 }

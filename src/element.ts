@@ -62,12 +62,11 @@ class LiteElement extends HTMLElement {
     if (!this.renderedOnce) {
       this.renderResolve(true)
       this.renderedOnce = true
-      // @ts-ignore
-      if (this.firstRender) this.firstRender()
     }
   }
 
   static styles?: StyleList
+  // below ones need to be handled in the decorator to avoid binding issues
   /**
    * willChange happens before new value is set, makes it possible to mutate the value before render
    */

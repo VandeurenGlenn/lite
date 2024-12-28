@@ -1,7 +1,6 @@
 import { readdir } from 'fs/promises'
 import { join } from 'path'
 import typescript from '@rollup/plugin-typescript'
-import resolve from '@rollup/plugin-node-resolve'
 import { autoExports } from 'rollup-plugin-auto-exports'
 import size from 'rollup-plugin-size'
 import terser from '@rollup/plugin-terser'
