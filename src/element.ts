@@ -72,6 +72,10 @@ class LiteElement extends HTMLElement {
   static styles?: StyleList
   // below ones need to be handled in the decorator to avoid binding issues
   /**
+   * beforeChange happens before new value is set but doesn't change the value
+   */
+  beforeChange?(propertyKey: string, value: any): Promise<any>
+  /**
    * willChange happens before new value is set, makes it possible to mutate the value before render
    */
   willChange?(propertyKey: string, value: any): Promise<any>

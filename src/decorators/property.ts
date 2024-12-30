@@ -94,13 +94,13 @@ export const property = (options?: PropertyOptions) => {
 
     async function set(value) {
       // await this.rendered
-      if (provides) {
-        globalThis.pubsub.publish(provides, value)
-      }
+      if (provides) globalThis.pubsub.publish(provides, value)
+
       if (this[`_lite_${propertyKey}`] !== value) {
-        if (this.willChange) {
-          this[`__lite_${propertyKey}`] = await this.willChange(name, value)
-        }
+        if (this.beforeChange) await this.beforeChange(name, value)
+
+        if (this.willChange) this[`__lite_${propertyKey}`] = await this.willChange(name, value)
+
         if (attribute)
           if (isBoolean)
             if (value || this[`__lite_${propertyKey}`]) this.setAttribute(attributeName, '')
@@ -118,15 +118,12 @@ export const property = (options?: PropertyOptions) => {
         }
 
         if (batches) {
-          if (totalBatchUpdates === temporaryRender) {
-            performUpdate()
-          } else {
+          if (totalBatchUpdates === temporaryRender) performUpdate()
+          else {
             if (this[`_${propertyKey}_timeout`]) clearTimeout(this[`_${propertyKey}_timeout`])
             this[`_${propertyKey}_timeout`] = setTimeout(performUpdate, batchDelay)
           }
-        } else {
-          performUpdate()
-        }
+        } else performUpdate()
       }
     }
   }
