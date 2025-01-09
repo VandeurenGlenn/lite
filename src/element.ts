@@ -16,12 +16,14 @@ export interface SymbolMetadataConstructor extends SymbolConstructor {
 Symbol.metadata ??= Symbol('metadata')
 
 class LiteElement extends HTMLElement {
+  private attributeChangeTimeout: number | any
   private renderResolve: (value: boolean) => void
   private renderedOnce = false
-  private rendered = new Promise<boolean>((resolve) => {
+  private listeners: [string, EventListenerOrEventListenerObject][] = []
+
+  rendered = new Promise<boolean>((resolve) => {
     this.renderResolve = resolve
   })
-  private attributeChangeTimeout: number | any
 
   static get observedAttributes() {
     // @ts-ignore
@@ -49,7 +51,6 @@ class LiteElement extends HTMLElement {
     this.attachShadow({ mode: 'open' })
     const klass = customElements.get(this.localName) as unknown as typeof LiteElement
     this.shadowRoot.adoptedStyleSheets = klass.styles ? klass.styles.map((style) => style.styleSheet ?? style) : []
-
     this.requestRender()
   }
 
@@ -58,6 +59,12 @@ class LiteElement extends HTMLElement {
     this.renderResolve(true)
     if (this.firstRender) {
       this.firstRender()
+    }
+  }
+
+  disconnectedCallback() {
+    for (const [event, listener] of this.listeners) {
+      this.removeEventListener(event, listener)
     }
   }
 
@@ -87,5 +94,12 @@ class LiteElement extends HTMLElement {
    * firstRender happens after new value is set and after render
    */
   firstRender?(): void
+  /**
+   * Adds an event listener to the element and stores it in a list to be removed when the element is disconnected
+   */
+  addListener(event: string, listener: EventListenerOrEventListenerObject) {
+    this.listeners.push([event, listener])
+    this.addEventListener(event, listener)
+  }
 }
 export { html, LiteElement, css }
