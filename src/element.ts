@@ -51,7 +51,14 @@ class LiteElement extends HTMLElement {
     this.attachShadow({ mode: 'open' })
     const klass = customElements.get(this.localName) as unknown as typeof LiteElement
     this.shadowRoot.adoptedStyleSheets = klass.styles ? klass.styles.map((style) => style.styleSheet ?? style) : []
+    this.beforeRender?.()
     this.requestRender()
+  }
+
+  connectedCallback() {
+    this.renderedOnce = true
+    this.renderResolve(true)
+    this.firstRender?.()
   }
 
   disconnectedCallback() {
@@ -66,9 +73,6 @@ class LiteElement extends HTMLElement {
 
   requestRender() {
     render(this.render(), this.shadowRoot)
-    if (!this.renderedOnce) {
-      this.renderResolve(true)
-    }
   }
 
   static styles?: StyleList
