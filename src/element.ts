@@ -54,14 +54,6 @@ class LiteElement extends HTMLElement {
     this.requestRender()
   }
 
-  connectedCallback() {
-    this.renderedOnce = true
-    this.renderResolve(true)
-    if (this.firstRender) {
-      this.firstRender()
-    }
-  }
-
   disconnectedCallback() {
     for (const [event, listener] of this.listeners) {
       this.removeEventListener(event, listener)
@@ -73,10 +65,18 @@ class LiteElement extends HTMLElement {
   }
 
   requestRender() {
+    this.beforeRender?.()
     render(this.render(), this.shadowRoot)
+
+    if (!this.renderedOnce) {
+      this.renderedOnce = true
+      this.renderResolve(true)
+      this.firstRender?.()
+    }
   }
 
   static styles?: StyleList
+
   // below ones need to be handled in the decorator to avoid binding issues
   /**
    * beforeChange happens before new value is set but doesn't change the value
@@ -90,10 +90,16 @@ class LiteElement extends HTMLElement {
    * onChange happens after new value is set and after render
    */
   onChange?(propertyKey: string, value: any): void
+
   /**
-   * firstRender happens after new value is set and after render
+   * beforeRender happens after new value is set or on init and before render
+   */
+  beforeRender?(): void
+  /**
+   * firstRender happens after new value is set or on init and after render
    */
   firstRender?(): void
+
   /**
    * Adds an event listener to the element and stores it in a list to be removed when the element is disconnected
    */
