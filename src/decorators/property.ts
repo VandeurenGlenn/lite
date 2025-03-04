@@ -118,7 +118,10 @@ export const property = (options?: PropertyOptions) => {
         }
 
         if (batches) {
-          if (totalBatchUpdates === temporaryRender) performUpdate()
+          // when batching is enabled, we will wait for a certain amount of updates before rendering
+          // but we will render after temporaryRender amount of updates
+          // this is to prevent the user from waiting too long for the first render
+          if (totalBatchUpdates === temporaryRender && !this.renderedOnce) performUpdate()
           else {
             if (this[`_${propertyKey}_timeout`]) clearTimeout(this[`_${propertyKey}_timeout`])
             this[`_${propertyKey}_timeout`] = setTimeout(performUpdate, batchDelay)
