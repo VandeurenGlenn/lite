@@ -65,13 +65,9 @@ class LiteElement extends HTMLElement {
   }
 
   requestRender() {
-    this.beforeRender?.()
     render(this.render(), this.shadowRoot)
-
     if (!this.renderedOnce) {
-      this.renderedOnce = true
       this.renderResolve(true)
-      this.firstRender?.()
     }
   }
 
