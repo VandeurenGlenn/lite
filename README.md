@@ -86,3 +86,17 @@ class ProviderEl extends LiteElement {
   }
 }
 ```
+
+#### firstRender
+
+```js
+import { LiteElement, property, customElement } from '@vandeurenglenn/lite'
+@customElement
+class ProviderEl extends LiteElement {
+  @property({ type: Boolean })
+  accessor drawerOpen = false
+
+  // runs after first render
+  firstRender() {}
+}
+```
