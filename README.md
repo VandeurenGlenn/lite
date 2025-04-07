@@ -57,6 +57,44 @@ class ProviderEl extends LiteElement {
 }
 ```
 
+#### query
+
+```js
+import { LiteElement, property, customElement, query } from '@vandeurenglenn/lite'
+@customElement
+class ProviderEl extends LiteElement {
+  @query('my-item') accessor item
+
+  render() {
+    return html`<my-item></my-item>`
+  }
+}
+```
+
+#### queryAll
+
+```js
+import { LiteElement, property, customElement, queryAll } from '@vandeurenglenn/lite'
+@customElement
+class ProviderEl extends LiteElement {
+  @queryAll('my-item') accessor items
+
+  render() {
+    return html`<my-item></my-item><my-item></my-item>`
+  }
+}
+```
+
+#### darkMode
+
+```js
+import { LiteElement, property, customElement, queryAll } from '@vandeurenglenn/lite'
+@customElement
+class AppShell extends LiteElement {
+  @darkMode({ provides: true })
+}
+```
+
 #### onChange
 
 ```js
