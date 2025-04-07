@@ -4,6 +4,9 @@ import { PropertyOptions } from '../types.js'
 import { stringToType, typeToString } from '../helpers.js'
 
 globalThis.pubsub = globalThis.pubsub || new LittlePubSub()
+declare global {
+  var pubsub: LittlePubSub
+}
 
 /**
  * @example
@@ -52,7 +55,7 @@ export const property = (options?: PropertyOptions) => {
         metadata.observedAttributes.set(propertyKey, attributeName)
       }
       if (consumes) {
-        globalThis.pubsub.subscribe(consumes, async (value) => {
+        pubsub.subscribe(consumes, async (value) => {
           this[name] = value
         })
       }
@@ -84,17 +87,17 @@ export const property = (options?: PropertyOptions) => {
         : this[`__lite_${propertyKey}`]
         ? this[`__lite_${propertyKey}`]
         : this[`_lite_${propertyKey}`]
-      // if (consumes && !this[`__lite_${propertyKey}`] && globalThis.pubsub.subscribers?.[consumes]?.value) {
-      //   if (value !== globalThis.pubsub.subscribers[consumes].value)
-      //     set.call(this, globalThis.pubsub.subscribers[consumes].value)
-      //   return globalThis.pubsub.subscribers[consumes].value
+      // if (consumes && !this[`__lite_${propertyKey}`] && pubsub.subscribers?.[consumes]?.value) {
+      //   if (value !== pubsub.subscribers[consumes].value)
+      //     set.call(this, pubsub.subscribers[consumes].value)
+      //   return pubsub.subscribers[consumes].value
       // }
       return value
     }
 
     async function set(value) {
       // await this.rendered
-      if (provides) globalThis.pubsub.publish(provides, value)
+      if (provides) pubsub.publish(provides, value)
 
       if (this[`_lite_${propertyKey}`] !== value) {
         if (this.beforeChange) await this.beforeChange(name, value)
