@@ -23,6 +23,14 @@
 			"import": "./exports/custom-element.js",
 			"types": "./exports/decorators/custom-element.d.ts"
 		},
+		"./dark-mode": {
+			"import": "./exports/dark-mode.js",
+			"types": "./exports/decorators/dark-mode.d.ts"
+		},
+		"./dark-mode.js": {
+			"import": "./exports/dark-mode.js",
+			"types": "./exports/decorators/dark-mode.d.ts"
+		},
 		"./element": {
 			"import": "./exports/element.js",
 			"types": "./exports/element.d.ts"
