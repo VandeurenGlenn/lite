@@ -115,20 +115,24 @@ export const property = (options?: PropertyOptions) => {
         else this[`_lite_${propertyKey}`] = value
 
         const performUpdate = () => {
-          totalBatchUpdates = 0
-          renders && this.requestRender?.()
+          if (this[`_lite_batches`] && renders) {
+            clearTimeout(this[`_lite_batches`])
+            this[`_lite_batches`] = setTimeout(() => {
+              this.requestRender?.()
+            }, 100)
+          } else {
+            if (renders)
+              this[`_lite_batches`] = setTimeout(() => {
+                this.requestRender?.()
+              }, 100)
+          }
+
           this.onChange?.(name, this[`__lite_${propertyKey}`] ?? value)
         }
 
         if (batches) {
-          // when batching is enabled, we will wait for a certain amount of updates before rendering
-          // but we will render after temporaryRender amount of updates
-          // this is to prevent the user from waiting too long for the first render
-          if (totalBatchUpdates === temporaryRender && !this.renderedOnce) performUpdate()
-          else {
-            if (this[`_${propertyKey}_timeout`]) clearTimeout(this[`_${propertyKey}_timeout`])
-            this[`_${propertyKey}_timeout`] = setTimeout(performUpdate, batchDelay)
-          }
+          if (this[`_${propertyKey}_timeout`]) clearTimeout(this[`_${propertyKey}_timeout`])
+          this[`_${propertyKey}_timeout`] = setTimeout(performUpdate, batchDelay)
         } else performUpdate()
       }
     }
