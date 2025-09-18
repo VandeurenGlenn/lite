@@ -56,9 +56,6 @@ class LiteElement extends HTMLElement {
   connectedCallback() {
     this.beforeRender?.()
     this.requestRender()
-    this.renderedOnce = true
-    this.renderResolve(true)
-    this.firstRender?.()
   }
 
   disconnectedCallback() {
@@ -73,6 +70,12 @@ class LiteElement extends HTMLElement {
 
   requestRender() {
     render(this.render(), this.shadowRoot)
+    // Resolve the rendered promise and call firstRender only after the actual render
+    if (!this.renderedOnce) {
+      this.renderedOnce = true
+      this.renderResolve(true)
+      this.firstRender?.()
+    }
   }
 
   static styles?: StyleList

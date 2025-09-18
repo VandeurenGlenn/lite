@@ -115,24 +115,42 @@ export const property = (options?: PropertyOptions) => {
         else this[`_lite_${propertyKey}`] = value
 
         const performUpdate = () => {
-          if (this[`_lite_batches`] && renders) {
-            clearTimeout(this[`_lite_batches`])
-            this[`_lite_batches`] = setTimeout(() => {
-              this.requestRender?.()
-            }, 100)
-          } else {
-            if (renders)
+          // Fast-path: schedule render on microtask to be as fast as possible and coalesce multiple updates
+          if (renders) {
+            // If a batchDelay is explicitly set and > 0, respect it using setTimeout
+            if (typeof batchDelay === 'number' && batchDelay > 0) {
+              if (this[`_lite_batches`]) clearTimeout(this[`_lite_batches`])
               this[`_lite_batches`] = setTimeout(() => {
                 this.requestRender?.()
-              }, 100)
+                this[`_lite_batches`] = null
+              }, batchDelay)
+            } else {
+              // Use a single microtask per element to coalesce renders
+              if (!this[`_lite_scheduled`]) {
+                this[`_lite_scheduled`] = Promise.resolve().then(() => {
+                  this.requestRender?.()
+                  this[`_lite_scheduled`] = null
+                })
+              }
+            }
           }
 
           this.onChange?.(name, this[`__lite_${propertyKey}`] ?? value)
         }
 
         if (batches) {
-          if (this[`_${propertyKey}_timeout`]) clearTimeout(this[`_${propertyKey}_timeout`])
-          this[`_${propertyKey}_timeout`] = setTimeout(performUpdate, batchDelay)
+          // Per-property batching: use microtask for minimal latency unless batchDelay provided
+          if (typeof batchDelay === 'number' && batchDelay > 0) {
+            if (this[`_${propertyKey}_timeout`]) clearTimeout(this[`_${propertyKey}_timeout`])
+            this[`_${propertyKey}_timeout`] = setTimeout(performUpdate, batchDelay)
+          } else {
+            if (!this[`_${propertyKey}_scheduled`]) {
+              this[`_${propertyKey}_scheduled`] = Promise.resolve().then(() => {
+                performUpdate()
+                this[`_${propertyKey}_scheduled`] = null
+              })
+            }
+          }
         } else performUpdate()
       }
     }
