@@ -16,14 +16,38 @@ export interface SymbolMetadataConstructor extends SymbolConstructor {
 Symbol.metadata ??= Symbol('metadata')
 
 class LiteElement extends HTMLElement {
-  private attributeChangeTimeout: number | any
   private renderResolve: (value: boolean) => void
   private renderedOnce = false
   private listeners: [string, EventListenerOrEventListenerObject][] = []
+  private renderScheduled = false
+  private _lite_reflecting = false
+  private _microtaskRender = () => {
+    render(this.render(), this.shadowRoot)
+    this.renderScheduled = false
+    this.renderResolve(true)
+    this.rendered = new Promise((resolve) => {
+      this.renderResolve = resolve
+    })
+  }
 
   rendered = new Promise<boolean>((resolve) => {
     this.renderResolve = resolve
   })
+
+  constructor() {
+    super()
+    this.attachShadow({ mode: 'open' })
+    const klass = this.constructor as unknown as typeof LiteElement
+    const styles = klass.styles as (CSSResult | CSSStyleSheet)[] | undefined
+    if (styles && styles.length) {
+      let adopted = (klass as any).__adoptedStyleSheets as CSSStyleSheet[] | undefined
+      if (!adopted) {
+        adopted = styles.map((s: any) => s.styleSheet ?? s)
+        ;(klass as any).__adoptedStyleSheets = adopted
+      }
+      this.shadowRoot.adoptedStyleSheets = adopted
+    }
+  }
 
   static get observedAttributes() {
     // @ts-ignore
@@ -31,34 +55,18 @@ class LiteElement extends HTMLElement {
   }
 
   attributeChangedCallback(name: string, old: string, value: string) {
+    if (this._lite_reflecting) return
     if (this[name] !== value || old !== value) {
       this[name] = value
-      if (this.attributeChangeTimeout) {
-        clearTimeout(this.attributeChangeTimeout)
-      }
-      this.attributeChangeTimeout = setTimeout(
-        () => {
-          this.requestRender()
-        },
-        // make sure to render asap if it's the first render
-        this.renderedOnce ? 150 : 0
-      )
+      this.requestRender()
     }
   }
 
-  constructor() {
-    super()
-    this.attachShadow({ mode: 'open' })
-    const klass = customElements.get(this.localName) as unknown as typeof LiteElement
-    this.shadowRoot.adoptedStyleSheets = klass.styles ? klass.styles.map((style) => style.styleSheet ?? style) : []
-  }
-
   connectedCallback() {
-    this.beforeRender?.()
+    if (this.beforeRender) this.beforeRender()
     this.requestRender()
     this.renderedOnce = true
-    this.renderResolve(true)
-    this.firstRender?.()
+    if (this.firstRender) this.firstRender()
   }
 
   disconnectedCallback() {
@@ -72,7 +80,20 @@ class LiteElement extends HTMLElement {
   }
 
   requestRender() {
-    render(this.render(), this.shadowRoot)
+    if (!this.renderedOnce) {
+      render(this.render(), this.shadowRoot)
+      this.renderResolve(true)
+      queueMicrotask(() => {
+        this.rendered = new Promise((resolve) => {
+          this.renderResolve = resolve
+        })
+      })
+      return
+    }
+
+    if (this.renderScheduled) return
+    this.renderScheduled = true
+    queueMicrotask(this._microtaskRender)
   }
 
   static styles?: StyleList

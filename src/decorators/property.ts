@@ -23,15 +23,13 @@ const defaultOptions = {
   type: String,
   reflect: false,
   renders: true,
-  batchDelay: 50,
-  temporaryRender: 10
+  batchDelay: 0
 }
 
 export const property = (options?: PropertyOptions) => {
   options = { ...defaultOptions, ...options }
-  let totalBatchUpdates = 0
   return function (ctor, { kind, name, addInitializer, access, metadata }: ClassAccessorDecoratorContext<LiteElement>) {
-    const { type, reflect, renders, batches, batchDelay, consumer, provider, temporaryRender } = options
+    const { type, reflect, renders, batches, batchDelay, consumer, provider } = options
 
     const attribute = options.attribute ?? reflect
 
@@ -40,6 +38,11 @@ export const property = (options?: PropertyOptions) => {
     const isBoolean = type === Boolean
     const consumes = consumer ? attributeName : typeof options.consumes === 'boolean' ? attributeName : options.consumes
     const provides = provider ? attributeName : typeof options.provides === 'boolean' ? attributeName : options.provides
+
+    // Cache property key strings to avoid repeated concatenation
+    const liteKey = `_lite_${propertyKey}`
+    const tempKey = `__lite_${propertyKey}`
+    const timeoutKey = `_${propertyKey}_timeout`
 
     if (options.provider) console.warn(`${propertyKey}: 'options.provider' is deprecated, use options.provides instead`)
     if (options.consumer) console.warn(`${propertyKey}: 'options.consumer' is deprecated, use options.consumes instead`)
@@ -59,6 +62,9 @@ export const property = (options?: PropertyOptions) => {
           this[name] = value
         })
       }
+      ;(this as any).__lite_hasBeforeChange = typeof (this as any).beforeChange === 'function'
+      ;(this as any).__lite_hasWillChange = typeof (this as any).willChange === 'function'
+      ;(this as any).__lite_hasOnChange = typeof (this as any).onChange === 'function'
     })
     if (kind === 'accessor') {
       return {
@@ -78,62 +84,60 @@ export const property = (options?: PropertyOptions) => {
       }
     }
 
-    // let timeoutChange
     function get() {
-      const value = attribute
-        ? isBoolean
-          ? this.hasAttribute(attributeName)
-          : stringToType(this.getAttribute(attributeName), type)
-        : this[`__lite_${propertyKey}`]
-        ? this[`__lite_${propertyKey}`]
-        : this[`_lite_${propertyKey}`]
-      // if (consumes && !this[`__lite_${propertyKey}`] && pubsub.subscribers?.[consumes]?.value) {
-      //   if (value !== pubsub.subscribers[consumes].value)
-      //     set.call(this, pubsub.subscribers[consumes].value)
-      //   return pubsub.subscribers[consumes].value
-      // }
-      return value
+      if (attribute) {
+        return isBoolean ? this.hasAttribute(attributeName) : stringToType(this.getAttribute(attributeName), type)
+      }
+      return this[tempKey] !== undefined ? this[tempKey] : this[liteKey]
     }
 
     async function set(value) {
-      // await this.rendered
       if (provides) pubsub.publish(provides, value)
 
-      if (this[`_lite_${propertyKey}`] !== value) {
-        if (this.beforeChange) await this.beforeChange(name, value)
+      if (this[liteKey] === value) return
 
-        if (this.willChange) this[`__lite_${propertyKey}`] = await this.willChange(name, value)
+      if ((this as any).__lite_hasBeforeChange) await this.beforeChange(name, value)
+      if ((this as any).__lite_hasWillChange) this[tempKey] = await this.willChange(name, value)
 
-        if (attribute)
-          if (isBoolean)
-            if (value || this[`__lite_${propertyKey}`]) this.setAttribute(attributeName, '')
-            else this.removeAttribute(attributeName)
-          else if (value || this[`__lite_${propertyKey}`])
-            this.setAttribute(attributeName, typeToString(type, this[`__lite_${propertyKey}`] ?? value))
-          else this.removeAttribute(attributeName)
-        // only store data ourselves when really needed
-        else this[`_lite_${propertyKey}`] = value
-
-        const performUpdate = () => {
-          if (this[`_lite_batches`] && renders) {
-            clearTimeout(this[`_lite_batches`])
-            this[`_lite_batches`] = setTimeout(() => {
-              this.requestRender?.()
-            }, 100)
+      if (attribute) {
+        const actualValue = this[tempKey] ?? value
+        try {
+          this._lite_reflecting = true
+          if (isBoolean) {
+            if (actualValue) {
+              if (!this.hasAttribute(attributeName)) this.setAttribute(attributeName, '')
+            } else {
+              if (this.hasAttribute(attributeName)) this.removeAttribute(attributeName)
+            }
+          } else if (actualValue) {
+            const str = typeToString(type, actualValue)
+            if (this.getAttribute(attributeName) !== str) this.setAttribute(attributeName, str)
           } else {
-            if (renders)
-              this[`_lite_batches`] = setTimeout(() => {
-                this.requestRender?.()
-              }, 100)
+            if (this.hasAttribute(attributeName)) this.removeAttribute(attributeName)
           }
-
-          this.onChange?.(name, this[`__lite_${propertyKey}`] ?? value)
+        } finally {
+          this._lite_reflecting = false
         }
+      } else {
+        this[liteKey] = value
+      }
 
-        if (batches) {
-          if (this[`_${propertyKey}_timeout`]) clearTimeout(this[`_${propertyKey}_timeout`])
-          this[`_${propertyKey}_timeout`] = setTimeout(performUpdate, batchDelay)
-        } else performUpdate()
+      // Inline performance critical path
+      if (renders && !this[`_lite_batches`]) {
+        this[`_lite_batches`] = true
+        queueMicrotask(() => {
+          this[`_lite_batches`] = false
+          if (this.requestRender) this.requestRender()
+        })
+      }
+
+      if ((this as any).__lite_hasOnChange) this.onChange(name, this[tempKey] ?? value)
+
+      if (batches && batchDelay > 0) {
+        if (this[timeoutKey]) clearTimeout(this[timeoutKey])
+        this[timeoutKey] = setTimeout(() => {
+          if ((this as any).__lite_hasOnChange) this.onChange(name, this[tempKey] ?? value)
+        }, batchDelay)
       }
     }
   }
