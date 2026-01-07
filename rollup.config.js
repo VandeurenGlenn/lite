@@ -4,6 +4,8 @@ import typescript from '@rollup/plugin-typescript'
 import { autoExports } from 'rollup-plugin-auto-exports'
 import size from 'rollup-plugin-size'
 import terser from '@rollup/plugin-terser'
+import resolve from '@rollup/plugin-node-resolve'
+import commonjs from '@rollup/plugin-commonjs'
 import { unlink } from 'fs/promises'
 import { parse } from 'path'
 
@@ -48,5 +50,20 @@ export default [
       dir: 'exports'
     },
     plugins: [typescript(), autoExports(), size(), terser()]
+  },
+  // Browser bundle: roll up dependencies into a single ESM for direct use in the browser
+  {
+    input: 'src/index.ts',
+    output: {
+      file: 'www/lite.js',
+      format: 'es',
+      sourcemap: true
+    },
+    plugins: [
+      resolve({ browser: true, exportConditions: ['browser', 'module', 'default'], preferBuiltins: false }),
+      commonjs(),
+      typescript({ compilerOptions: { outDir: 'www' } }),
+      terser()
+    ]
   }
 ]

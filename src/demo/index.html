@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lite Calculator Demo</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        background: radial-gradient(1200px 800px at 10% 10%, #1f2937, #0b1020);
+        color: #fff;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans,
+          Helvetica Neue, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
+      }
+    </style>
+  </head>
+  <body>
+    <lite-calculator></lite-calculator>
+    <script type="module">
+      // Import from built exports; path is from src/demo -> ../../exports
+      import { LiteElement, html, css } from './lib/element.js'
+
+      class LiteCalculator extends LiteElement {
+        static styles = css`
+          :host {
+            display: block;
+            width: 360px;
+            max-width: 92vw;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            background: #111827;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+          }
+          .display {
+            min-height: 96px;
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent);
+          }
+          .history {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+            min-height: 18px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .value {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-size: 36px;
+            line-height: 1.2;
+            letter-spacing: 0.5px;
+          }
+          .pad {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            padding: 12px;
+            background: #0b1220;
+          }
+          button {
+            appearance: none;
+            border: 0;
+            border-radius: 12px;
+            padding: 14px;
+            color: #e5e7eb;
+            font-weight: 600;
+            font-size: 16px;
+            background: #111827;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            transition: transform 0.05s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+            cursor: pointer;
+            user-select: none;
+          }
+          button:active {
+            transform: translateY(1px);
+          }
+          button.op {
+            background: #172036;
+            color: #cbd5e1;
+          }
+          button.ac {
+            background: #1f2937;
+            color: #fca5a5;
+          }
+          button.equals {
+            background: #2563eb;
+            border-color: rgba(37, 99, 235, 0.6);
+            color: white;
+          }
+          button.zero {
+            grid-column: span 2;
+            text-align: left;
+            padding-left: 22px;
+          }
+          button:focus-visible {
+            outline: 2px solid #60a5fa;
+            outline-offset: 2px;
+          }
+        `
+
+        display = '0'
+        _acc = null // number | null
+        _op = null // '+' | '-' | '*' | '/' | null
+        _history = ''
+        _waiting = false // waiting for second operand
+
+        connectedCallback() {
+          super.connectedCallback()
+          this._onKeyDown = (e) => this._handleKey(e)
+          window.addEventListener('keydown', this._onKeyDown)
+        }
+
+        disconnectedCallback() {
+          window.removeEventListener('keydown', this._onKeyDown)
+          super.disconnectedCallback()
+        }
+
+        render() {
+          return html`
+            <div class="display" aria-live="polite">
+              <div class="history">${this._history}</div>
+              <div class="value">${this.display}</div>
+            </div>
+            <div class="pad" @click=${(e) => this._delegate(e)}>
+              <button class="ac" data-act="ac" aria-label="All clear">AC</button>
+              <button data-act="sign" aria-label="Toggle sign">±</button>
+              <button data-act="percent" aria-label="Percent">%</button>
+              <button class="op" data-op="/" aria-label="Divide">÷</button>
+
+              <button data-num="7">7</button>
+              <button data-num="8">8</button>
+              <button data-num="9">9</button>
+              <button class="op" data-op="*" aria-label="Multiply">×</button>
+
+              <button data-num="4">4</button>
+              <button data-num="5">5</button>
+              <button data-num="6">6</button>
+              <button class="op" data-op="-" aria-label="Subtract">−</button>
+
+              <button data-num="1">1</button>
+              <button data-num="2">2</button>
+              <button data-num="3">3</button>
+              <button class="op" data-op="+" aria-label="Add">+</button>
+
+              <button class="zero" data-num="0">0</button>
+              <button data-act="dot" aria-label="Decimal">.</button>
+              <button class="equals" data-act="eq" aria-label="Equals">=</button>
+            </div>
+          `
+        }
+
+        _delegate(e) {
+          const btn = e.target?.closest?.('button')
+          if (!btn) return
+          const num = btn.getAttribute('data-num')
+          const op = btn.getAttribute('data-op')
+          const act = btn.getAttribute('data-act')
+          if (num !== null) return this._inputDigit(num)
+          if (op !== null) return this._setOperator(op)
+          if (act) return this._action(act)
+        }
+
+        _handleKey(e) {
+          const { key } = e
+          if (/^[0-9]$/.test(key)) return this._inputDigit(key)
+          if (key === '.') return this._action('dot')
+          if (key === 'Enter' || key === '=') return this._action('eq')
+          if (key === 'Escape') return this._action('ac')
+          if (key === '%') return this._action('percent')
+          if (key === '+/-') return this._action('sign')
+          if (['+', '-', '*', '/'].includes(key)) return this._setOperator(key)
+        }
+
+        _inputDigit(d) {
+          if (this._waiting) {
+            this.display = d === '.' ? '0.' : d
+            this._waiting = false
+          } else {
+            if (d === '0' && this.display === '0') return
+            if (d === '.') {
+              if (!this.display.includes('.')) this.display += '.'
+            } else {
+              this.display = this.display === '0' ? d : this.display + d
+            }
+          }
+          this.requestRender()
+        }
+
+        _setOperator(op) {
+          const current = parseFloat(this.display)
+          if (this._acc == null) {
+            this._acc = current
+          } else if (!this._waiting) {
+            this._acc = this._compute(this._acc, current, this._op)
+            this.display = this._format(this._acc)
+          }
+          this._op = op
+          this._waiting = true
+          this._history = `${this._format(this._acc)} ${op}`
+          this.requestRender()
+        }
+
+        _action(act) {
+          switch (act) {
+            case 'ac':
+              this.display = '0'
+              this._acc = null
+              this._op = null
+              this._waiting = false
+              this._history = ''
+              break
+            case 'dot':
+              this._inputDigit('.')
+              return
+            case 'eq': {
+              if (this._op != null && this._acc != null) {
+                const current = parseFloat(this.display)
+                const res = this._compute(this._acc, current, this._op)
+                this._history = `${this._format(this._acc)} ${this._op} ${this._format(current)} =`
+                this.display = this._format(res)
+                this._acc = res
+                this._op = null
+                this._waiting = true
+              }
+              break
+            }
+            case 'percent': {
+              const v = parseFloat(this.display) / 100
+              this.display = this._format(v)
+              break
+            }
+            case 'sign': {
+              if (this.display === '0') break
+              if (this.display.startsWith('-')) this.display = this.display.slice(1)
+              else this.display = '-' + this.display
+              break
+            }
+          }
+          this.requestRender()
+        }
+
+        _compute(a, b, op) {
+          switch (op) {
+            case '+':
+              return a + b
+            case '-':
+              return a - b
+            case '*':
+              return a * b
+            case '/':
+              return b === 0 ? NaN : a / b
+            default:
+              return b
+          }
+        }
+
+        _format(n) {
+          if (!Number.isFinite(n)) return 'Error'
+          const s = n.toString()
+          const [int, dec] = s.split('.')
+          const intFmt = Number(int).toLocaleString(undefined, { maximumFractionDigits: 0 })
+          return dec ? `${intFmt}.${dec.slice(0, 8)}` : intFmt
+        }
+      }
+
+      customElements.define('lite-calculator', LiteCalculator)
+    </script>
+  </body>
+</html>
