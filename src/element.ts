@@ -10,7 +10,7 @@ export declare interface ElementConstructor extends HTMLElement {
 export type StyleList = CSSResult[] | CSSStyleSheet[]
 
 export interface SymbolMetadataConstructor extends SymbolConstructor {
-  metadata: Symbol
+  readonly metadata: unique symbol
 }
 // @ts-ignore
 Symbol.metadata ??= Symbol('metadata')
