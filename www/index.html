@@ -1,9 +1,61 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
   </head>
-  <body></body>
+  <body>
+    <lite-calculator></lite-calculator>
+    <script type="module">
+      // Import from built exports; path is from src/demo -> ../../exports
+      import { LiteElement, html, css } from './lite.js'
+
+      class LiteCalculator extends LiteElement {
+        static styles = css`
+          :host {
+            display: block;
+            width: 360px;
+            max-width: 92vw;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            background: #111827;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+          }
+          .display {
+            min-height: 96px;
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent);
+          }
+          .history {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+            min-height: 18px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .value {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-size: 36px;
+          }
+        `
+        render() {
+          return html`
+            <div class="display">
+              <div class="history">12 + 34</div>
+              <div class="value">46</div>
+            </div>
+          `
+        }
+      }
+
+      customElements.define('lite-calculator', LiteCalculator)
+    </script>
+  </body>
 </html>

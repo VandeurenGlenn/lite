@@ -4,16 +4,12 @@ import { CSSResult, css } from '@lit/reactive-element/css-tag.js'
 export { CSSResult }
 
 export declare interface ElementConstructor extends HTMLElement {
-  styles?: CSSResult[] | CSSStyleSheet[]
+  styles?: CSSResult[] | CSSStyleSheet[] | CSSResult | CSSStyleSheet
 }
 
-export type StyleList = CSSResult[] | CSSStyleSheet[]
+export type StyleList = CSSResult[] | CSSStyleSheet[] | CSSResult | CSSStyleSheet
 
-export interface SymbolMetadataConstructor extends SymbolConstructor {
-  readonly metadata: unique symbol
-}
-// @ts-ignore
-Symbol.metadata ??= Symbol('metadata')
+;(Symbol as any).metadata ??= Symbol('metadata')
 
 class LiteElement extends HTMLElement {
   private renderResolve: (value: boolean) => void
@@ -38,11 +34,11 @@ class LiteElement extends HTMLElement {
     super()
     this.attachShadow({ mode: 'open' })
     const klass = this.constructor as unknown as typeof LiteElement
-    const styles = klass.styles as (CSSResult | CSSStyleSheet)[] | undefined
-    if (styles && styles.length) {
+    const styles = klass.styles as (CSSResult | CSSStyleSheet)[] | CSSResult | CSSStyleSheet | undefined
+    if (styles) {
       let adopted = (klass as any).__adoptedStyleSheets as CSSStyleSheet[] | undefined
       if (!adopted) {
-        adopted = styles.map((s: any) => s.styleSheet ?? s)
+        adopted = (Array.isArray(styles) ? styles : [styles]).map((s: any) => s.styleSheet ?? s)
         ;(klass as any).__adoptedStyleSheets = adopted
       }
       this.shadowRoot.adoptedStyleSheets = adopted
