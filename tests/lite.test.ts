@@ -1,7 +1,8 @@
 import { test } from 'uvu'
 import * as assert from 'uvu/assert'
 import './setup.js'
-import { LiteElement, html, property, query, queryAll, customElement, map } from '../src/index.js'
+import { LiteElement, html, property, query, queryAll, customElement, map, repeat } from '../src/index.js'
+import { arrayRepeat as arrayRepeatHelper } from '../src/helpers.js'
 
 let tagCounter = 0
 const nextTag = (base = 'lite-spec') => `${base}-${++tagCounter}`
@@ -42,13 +43,14 @@ test('property decorator reflects attributes and toggles boolean', async () => {
   el.setAttribute('open', '')
   assert.is(el.open, true)
 
-  el.open = false
-  await el.rendered
-  assert.is(el.hasAttribute('open'), false)
-
   el.open = true
   await el.rendered
   assert.is(el.getAttribute('open'), '')
+
+  el.open = false
+  await el.rendered
+  assert.is(el.hasAttribute('open'), false)
+  assert.is(el.open, false)
 })
 
 test('provides/consumes synchronizes values', async () => {
@@ -111,6 +113,117 @@ test('map directive maps arrays', () => {
   const items = [1, 2, 3]
   const doubled = map(items, (x) => x * 2)
   assert.equal(doubled, [2, 4, 6])
+})
+
+test('repeat directive maps arrays', () => {
+  const items = [1, 2, 3]
+  const doubled = repeat(items, (x) => x * 2)
+  assert.equal(doubled, [2, 4, 6])
+})
+
+test('repeat directive supports keyed signature', () => {
+  const items = [
+    { id: 'a', value: 1 },
+    { id: 'b', value: 2 }
+  ]
+  const mapped = repeat(
+    items,
+    (item) => item.id,
+    (item) => item.value
+  )
+  assert.equal(mapped, [1, 2])
+})
+
+test('arrayRepeat helper returns empty list for missing items', () => {
+  const result = arrayRepeatHelper(undefined, (item) => item)
+  assert.equal(result, [])
+})
+
+test('repeat decorator renders and updates repeated templates', async () => {
+  const tag = nextTag('lite-array-repeat')
+
+  @customElement(tag)
+  class ArrayRepeatEl extends LiteElement {
+    @property({ type: Array }) accessor items = [1, 2, 3]
+
+    @repeat<number>('items', (item) => html`<li class="item">${item}</li>`, (item) => item)
+    accessor repeatedItems: unknown
+
+    render() {
+      return html`<ul>
+        ${this.repeatedItems}
+      </ul>`
+    }
+  }
+
+  const el = document.createElement(tag) as ArrayRepeatEl
+  document.body.appendChild(el)
+  await el.rendered
+
+  const text = Array.from(el.shadowRoot?.querySelectorAll('.item') ?? []).map((node) => node.textContent)
+  assert.equal(text, ['1', '2', '3'])
+
+  el.items = [3, 2, 1]
+  await el.rendered
+
+  const updatedText = Array.from(el.shadowRoot?.querySelectorAll('.item') ?? []).map((node) => node.textContent)
+  assert.equal(updatedText, ['3', '2', '1'])
+})
+
+test('repeat decorator only renders intersecting items when IntersectionObserver is available', async () => {
+  const originalIO = (globalThis as any).IntersectionObserver
+
+  class FakeIntersectionObserver {
+    static instances: FakeIntersectionObserver[] = []
+    callback: IntersectionObserverCallback
+    target: Element | null = null
+
+    constructor(callback: IntersectionObserverCallback) {
+      this.callback = callback
+      FakeIntersectionObserver.instances.push(this)
+    }
+
+    observe(target: Element) {
+      this.target = target
+    }
+
+    disconnect() {}
+
+    triggerIntersecting() {
+      if (!this.target) return
+      this.callback([{ isIntersecting: true, target: this.target } as IntersectionObserverEntry], this as any)
+    }
+  }
+
+  ;(globalThis as any).IntersectionObserver = FakeIntersectionObserver as any
+
+  const tag = nextTag('lite-array-repeat-lazy')
+
+  @customElement(tag)
+  class LazyArrayRepeatEl extends LiteElement {
+    @property({ type: Array }) accessor items = [1, 2, 3, 4]
+
+    @repeat<number>('items', (item) => html`<li class="lazy-item">${item}</li>`, (item) => item)
+    accessor repeatedItems: unknown
+
+    render() {
+      return html`<ul>
+        ${this.repeatedItems}
+      </ul>`
+    }
+  }
+
+  const el = document.createElement(tag) as LazyArrayRepeatEl
+  document.body.appendChild(el)
+  await el.rendered
+
+  assert.is(el.shadowRoot?.querySelectorAll('.lazy-item').length, 0)
+
+  FakeIntersectionObserver.instances[0]?.triggerIntersecting()
+  FakeIntersectionObserver.instances[1]?.triggerIntersecting()
+
+  assert.is(el.shadowRoot?.querySelectorAll('.lazy-item').length, 2)
+  ;(globalThis as any).IntersectionObserver = originalIO
 })
 
 test.run()

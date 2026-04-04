@@ -99,6 +99,22 @@
 			"import": "./exports/query.js",
 			"types": "./exports/cli/decorators/query.d.ts"
 		},
+		"./repeat-directive": {
+			"import": "./exports/repeat-directive.js",
+			"types": "./exports/cli/directives/repeat-directive.d.ts"
+		},
+		"./repeat-directive.js": {
+			"import": "./exports/repeat-directive.js",
+			"types": "./exports/cli/directives/repeat-directive.d.ts"
+		},
+		"./repeat": {
+			"import": "./exports/repeat.js",
+			"types": "./exports/cli/decorators/repeat.d.ts"
+		},
+		"./repeat.js": {
+			"import": "./exports/repeat.js",
+			"types": "./exports/cli/decorators/repeat.d.ts"
+		},
 		"./types": {
 			"import": "./exports/types.js",
 			"types": "./exports/cli/types.d.ts"

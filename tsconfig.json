@@ -4,9 +4,7 @@
     "target": "esnext",
     "outDir": "./exports",
     "moduleResolution": "NodeNext",
-    "declaration": true,
-    "experimentalDecorators": true,
-    "useDefineForClassFields": false
+    "declaration": true
   },
   "include": ["./src/**/*"]
 }
