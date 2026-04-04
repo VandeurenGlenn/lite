@@ -1,195 +1,266 @@
-import { ensureDom } from '../tests/setup.js'
+import { spawnSync } from 'node:child_process'
 
-ensureDom()
-
-import { Bench } from 'tinybench'
-import { LiteElement, html, property, customElement } from '../src/index.js'
-import { LitElement, html as litHtml } from 'lit'
-
-@customElement('lite-bench-element')
-class LiteBenchElement extends LiteElement {
-  @property({ type: Number, renders: false }) accessor count = 0
-  render() {
-    return html`<span>${this.count}</span>`
-  }
-}
-
-class LitBenchElement extends LitElement {
-  static properties = {
-    count: { type: Number }
-  }
-
-  count = 0
-
-  render() {
-    return litHtml`<span>${this.count}</span>`
-  }
-}
-
-if (!customElements.get('lit-bench-element-lit')) {
-  customElements.define('lit-bench-element-lit', LitBenchElement)
-}
-
-const bench = new Bench({ time: 500 })
 const MANY = 100
+const parseOps = (value: string | number) =>
+  parseFloat(typeof value === 'string' ? value.replace(/,/g, '') : String(value))
 
-// Setup instances for property update tests
-const liteUpdateInstance = document.createElement('lite-bench-element') as LiteBenchElement
-const litUpdateInstance = document.createElement('lit-bench-element-lit') as LitBenchElement
-document.body.append(liteUpdateInstance, litUpdateInstance)
-
-// Setup many instances for batch property update tests
-const liteManyUpdate: LiteBenchElement[] = []
-const litManyUpdate: LitBenchElement[] = []
-{
-  const fragLite = document.createDocumentFragment()
-  for (let i = 0; i < MANY; i++) {
-    const el = document.createElement('lite-bench-element') as LiteBenchElement
-    liteManyUpdate.push(el)
-    fragLite.appendChild(el)
-  }
-  const fragLit = document.createDocumentFragment()
-  for (let i = 0; i < MANY; i++) {
-    const el = document.createElement('lit-bench-element-lit') as LitBenchElement
-    litManyUpdate.push(el)
-    fragLit.appendChild(el)
-  }
-  document.body.append(fragLite, fragLit)
+type BenchRow = {
+  'Task Name': string
+  'ops/sec': string | number
 }
 
-bench.add('LiteElement create + first render', async () => {
-  const el = document.createElement('lite-bench-element') as LiteBenchElement
-  document.body.appendChild(el)
-  await el.rendered
-  document.body.removeChild(el)
-})
-
-bench.add('LitElement create + first render', async () => {
-  const el = document.createElement('lit-bench-element-lit') as LitBenchElement
-  document.body.appendChild(el)
-  await el.updateComplete
-  document.body.removeChild(el)
-})
-
-bench.add(`LiteElement create + first render x${MANY}`, async () => {
-  const frag = document.createDocumentFragment()
-  const list: LiteBenchElement[] = []
-  for (let i = 0; i < MANY; i++) {
-    const el = document.createElement('lite-bench-element') as LiteBenchElement
-    list.push(el)
-    frag.appendChild(el)
-  }
-  document.body.appendChild(frag)
-  await Promise.all(list.map((el) => el.rendered))
-  for (const el of list) el.remove()
-})
-
-bench.add(`LitElement create + first render x${MANY}`, async () => {
-  const frag = document.createDocumentFragment()
-  const list: LitBenchElement[] = []
-  for (let i = 0; i < MANY; i++) {
-    const el = document.createElement('lit-bench-element-lit') as LitBenchElement
-    list.push(el)
-    frag.appendChild(el)
-  }
-  document.body.appendChild(frag)
-  await Promise.all(list.map((el) => el.updateComplete))
-  for (const el of list) el.remove()
-})
-
-bench.add('LiteElement property update + render', () => {
-  liteUpdateInstance.count++
-  liteUpdateInstance.requestRender()
-})
-
-bench.add('LitElement property update + render', async () => {
-  litUpdateInstance.count++
-  await litUpdateInstance.updateComplete
-})
-
-bench.add(`LiteElement property update + render x${MANY}`, () => {
-  for (let i = 0; i < MANY; i++) {
-    const el = liteManyUpdate[i]
-    el.count++
-    el.requestRender()
-  }
-})
-
-bench.add(`LitElement property update + render x${MANY}`, async () => {
-  for (let i = 0; i < MANY; i++) {
-    litManyUpdate[i].count++
-  }
-  await Promise.all(litManyUpdate.map((el) => el.updateComplete))
-})
-
-async function main() {
-  await bench.run()
-  const table = bench.table()
-  console.table(table)
-
-  console.log('\n' + '='.repeat(60))
-
-  // Compare create + first render
-  const liteCreateRow = table.find((row) => row['Task Name'].includes('LiteElement create'))
-  const litCreateRow = table.find((row) => row['Task Name'].includes('LitElement create'))
-
-  if (liteCreateRow && litCreateRow) {
-    const liteOps = parseFloat(
-      typeof liteCreateRow['ops/sec'] === 'string'
-        ? liteCreateRow['ops/sec'].replace(/,/g, '')
-        : String(liteCreateRow['ops/sec'])
-    )
-    const litOps = parseFloat(
-      typeof litCreateRow['ops/sec'] === 'string'
-        ? litCreateRow['ops/sec'].replace(/,/g, '')
-        : String(litCreateRow['ops/sec'])
-    )
-
-    if (litOps > liteOps) {
-      const ratio = (litOps / liteOps).toFixed(2)
-      console.log(`🏆 Create + First Render: LitElement is ${ratio}x faster`)
-    } else {
-      const ratio = (liteOps / litOps).toFixed(2)
-      console.log(`🏆 Create + First Render: LiteElement is ${ratio}x faster`)
-    }
-  }
-
-  // Compare property updates
-  const liteUpdateRow = table.find((row) => row['Task Name'].includes('LiteElement property'))
-  const litUpdateRow = table.find((row) => row['Task Name'].includes('LitElement property'))
-
-  if (liteUpdateRow && litUpdateRow) {
-    const liteOps = parseFloat(
-      typeof liteUpdateRow['ops/sec'] === 'string'
-        ? liteUpdateRow['ops/sec'].replace(/,/g, '')
-        : String(liteUpdateRow['ops/sec'])
-    )
-    const litOps = parseFloat(
-      typeof litUpdateRow['ops/sec'] === 'string'
-        ? litUpdateRow['ops/sec'].replace(/,/g, '')
-        : String(litUpdateRow['ops/sec'])
-    )
-
-    if (litOps > liteOps) {
-      const ratio = (litOps / liteOps).toFixed(2)
-      console.log(`🏆 Property Updates: LitElement is ${ratio}x faster`)
-    } else {
-      const ratio = (liteOps / litOps).toFixed(2)
-      console.log(`🏆 Property Updates: LiteElement is ${ratio}x faster`)
-    }
-  }
-
-  console.log('='.repeat(60) + '\n')
-
-  // Initialize initial renders for many update instances once
-  await Promise.all(liteManyUpdate.map((el) => el.rendered))
-  await Promise.all(litManyUpdate.map((el) => el.updateComplete))
-
-  // Cleanup
-  document.body.removeChild(liteUpdateInstance)
-  document.body.removeChild(litUpdateInstance)
-  for (const el of liteManyUpdate) el.remove()
-  for (const el of litManyUpdate) el.remove()
+type SuiteResult = {
+  suite: 'create' | 'update'
+  framework: 'lite' | 'lit'
+  table: BenchRow[]
 }
 
-main()
+type FoucSummary = {
+  framework: 'lite' | 'lit'
+  runs: number
+  avgMs: number
+  p95Ms: number
+  maxMs: number
+  minMs: number
+  avgFrames: number
+  foucRate: number
+}
+
+type FoucResult = {
+  lite: FoucSummary
+  lit: FoucSummary
+  winner: 'Lite' | 'Lit' | 'Tie'
+  fasterRatio: number
+}
+
+type MetricSummaryRow = {
+  Metric: string
+  liteOps: number
+  litOps: number
+  'Lite ops/sec': string
+  'Lit ops/sec': string
+  Winner: 'Lite' | 'Lit' | 'Tie'
+  Ratio: string
+  Lead: string
+  leadPercent: number
+  Verdict: 'Near tie' | 'Clear win'
+}
+
+const NEAR_TIE_THRESHOLD_PERCENT = 3
+
+const runSuite = (suite: 'create' | 'update', framework: 'lite' | 'lit') => {
+  const result = spawnSync('tsx', ['bench/run-suite.ts', suite, framework], {
+    cwd: process.cwd(),
+    encoding: 'utf8'
+  })
+
+  if (result.stdout) process.stdout.write(result.stdout)
+  if (result.stderr) process.stderr.write(result.stderr)
+
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1)
+  }
+
+  const markerLine = result.stdout.split('\n').find((line) => line.startsWith('__BENCH_RESULT__'))
+
+  if (!markerLine) {
+    throw new Error(`No benchmark result marker found for ${framework} ${suite}`)
+  }
+
+  return JSON.parse(markerLine.slice('__BENCH_RESULT__'.length)) as SuiteResult
+}
+
+const runFouc = (): FoucResult => {
+  const result = spawnSync('tsx', ['bench/fouc.ts', '--json'], {
+    cwd: process.cwd(),
+    encoding: 'utf8'
+  })
+
+  if (result.stderr) process.stderr.write(result.stderr)
+
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1)
+  }
+
+  const markerLine = result.stdout.split('\n').find((line) => line.startsWith('__FOUC_RESULT__'))
+  if (!markerLine) {
+    throw new Error('No FOUC result marker found')
+  }
+
+  return JSON.parse(markerLine.slice('__FOUC_RESULT__'.length)) as FoucResult
+}
+
+const compareRows = (
+  liteTable: BenchRow[],
+  litTable: BenchRow[],
+  liteTaskName: string,
+  litTaskName: string,
+  label: string
+): MetricSummaryRow | null => {
+  const liteRow = liteTable.find((row) => row['Task Name'] === liteTaskName)
+  const litRow = litTable.find((row) => row['Task Name'] === litTaskName)
+
+  if (!liteRow || !litRow) return null
+
+  const liteOps = parseOps(liteRow['ops/sec'])
+  const litOps = parseOps(litRow['ops/sec'])
+  const winner: 'Lite' | 'Lit' | 'Tie' = liteOps === litOps ? 'Tie' : liteOps > litOps ? 'Lite' : 'Lit'
+  const maxOps = Math.max(liteOps, litOps)
+  const minOps = Math.min(liteOps, litOps)
+  const ratio = minOps === 0 ? Infinity : maxOps / minOps
+  const leadPercent = minOps === 0 ? Infinity : ((maxOps - minOps) / minOps) * 100
+  const verdict: 'Near tie' | 'Clear win' = leadPercent < NEAR_TIE_THRESHOLD_PERCENT ? 'Near tie' : 'Clear win'
+
+  return {
+    Metric: label,
+    liteOps,
+    litOps,
+    'Lite ops/sec': liteOps.toLocaleString(),
+    'Lit ops/sec': litOps.toLocaleString(),
+    Winner: winner,
+    Ratio: Number.isFinite(ratio) ? `${ratio.toFixed(2)}x` : '∞',
+    Lead: Number.isFinite(leadPercent) ? `${leadPercent.toFixed(1)}%` : '∞',
+    leadPercent,
+    Verdict: verdict
+  }
+}
+
+const printWinnerBreakdown = (rows: MetricSummaryRow[]) => {
+  const liteWins = rows.filter((row) => row.Winner === 'Lite').length
+  const litWins = rows.filter((row) => row.Winner === 'Lit').length
+  const ties = rows.filter((row) => row.Winner === 'Tie').length
+
+  console.log('\nOverall result')
+  console.log(`Lite wins ${liteWins}/${rows.length} metrics`)
+  console.log(`Lit wins ${litWins}/${rows.length} metrics`)
+  if (ties) console.log(`Ties: ${ties}`)
+}
+
+const printWinnerHeadlines = (rows: MetricSummaryRow[]) => {
+  console.log('\nMetric verdicts')
+  for (const row of rows) {
+    if (row.Winner === 'Tie') {
+      console.log(`- ${row.Metric}: Lite and Lit are tied (${row.Ratio})`)
+      continue
+    }
+
+    if (row.Winner === 'Lite') {
+      console.log(
+        `- ${row.Metric}: Lite is ${row.Ratio} faster than Lit (${row.Lead} lead, ${row.Verdict.toLowerCase()})`
+      )
+    } else {
+      console.log(
+        `- ${row.Metric}: Lit is ${row.Ratio} faster than Lite (${row.Lead} lead, ${row.Verdict.toLowerCase()})`
+      )
+    }
+  }
+}
+
+const printScoreboard = (rows: MetricSummaryRow[]) => {
+  console.log('\nBenchmark Scoreboard (higher ops/sec wins)')
+  console.table(
+    rows.map((row) => ({
+      Metric: row.Metric,
+      Winner: row.Winner,
+      Ratio: row.Ratio,
+      Lead: row.Lead,
+      Verdict: row.Verdict,
+      'Lite ops/sec': row['Lite ops/sec'],
+      'Lit ops/sec': row['Lit ops/sec']
+    }))
+  )
+}
+
+const printFoucSummary = (fouc: FoucResult) => {
+  console.log('\nFOUC Summary (lower ms/frames is better)')
+  console.table([
+    {
+      Framework: 'Lite',
+      Runs: fouc.lite.runs,
+      'Avg time to styled (ms)': fouc.lite.avgMs.toFixed(3),
+      'P95 time (ms)': fouc.lite.p95Ms.toFixed(3),
+      'Avg frames until styled': fouc.lite.avgFrames.toFixed(2),
+      'FOUC rate': `${fouc.lite.foucRate.toFixed(1)}%`
+    },
+    {
+      Framework: 'Lit',
+      Runs: fouc.lit.runs,
+      'Avg time to styled (ms)': fouc.lit.avgMs.toFixed(3),
+      'P95 time (ms)': fouc.lit.p95Ms.toFixed(3),
+      'Avg frames until styled': fouc.lit.avgFrames.toFixed(2),
+      'FOUC rate': `${fouc.lit.foucRate.toFixed(1)}%`
+    }
+  ])
+
+  if (fouc.winner === 'Tie') {
+    console.log('FOUC verdict: Lite and Lit are tied on average time to styled.')
+  } else if (fouc.winner === 'Lite') {
+    console.log(`FOUC verdict: Lite reaches styled state ${fouc.fasterRatio.toFixed(2)}x faster than Lit.`)
+  } else {
+    console.log(`FOUC verdict: Lit reaches styled state ${fouc.fasterRatio.toFixed(2)}x faster than Lite.`)
+  }
+}
+
+const liteCreate = runSuite('create', 'lite')
+const litCreate = runSuite('create', 'lit')
+const liteUpdate = runSuite('update', 'lite')
+const litUpdate = runSuite('update', 'lit')
+const fouc = runFouc()
+
+const metricConfigs = [
+  {
+    liteTable: liteCreate.table,
+    litTable: litCreate.table,
+    liteTask: 'LiteElement create + first render',
+    litTask: 'LitElement create + first render',
+    label: 'Create + First Render'
+  },
+  {
+    liteTable: liteCreate.table,
+    litTable: litCreate.table,
+    liteTask: `LiteElement create + first render x${MANY}`,
+    litTask: `LitElement create + first render x${MANY}`,
+    label: `Create + First Render x${MANY}`
+  },
+  {
+    liteTable: liteUpdate.table,
+    litTable: litUpdate.table,
+    liteTask: 'LiteElement render cycle (requestRender only)',
+    litTask: 'LitElement render cycle (requestUpdate only)',
+    label: 'Render Cycle Only'
+  },
+  {
+    liteTable: liteUpdate.table,
+    litTable: litUpdate.table,
+    liteTask: `LiteElement render cycle (requestRender only) x${MANY}`,
+    litTask: `LitElement render cycle (requestUpdate only) x${MANY}`,
+    label: `Render Cycle Only x${MANY}`
+  },
+  {
+    liteTable: liteUpdate.table,
+    litTable: litUpdate.table,
+    liteTask: 'LiteElement property update + render',
+    litTask: 'LitElement property update + render',
+    label: 'Property Updates'
+  },
+  {
+    liteTable: liteUpdate.table,
+    litTable: litUpdate.table,
+    liteTask: `LiteElement property update + render x${MANY}`,
+    litTask: `LitElement property update + render x${MANY}`,
+    label: `Property Updates x${MANY}`
+  }
+]
+
+const summaryRows = metricConfigs
+  .map((config) => compareRows(config.liteTable, config.litTable, config.liteTask, config.litTask, config.label))
+  .filter((row): row is MetricSummaryRow => !!row)
+
+console.log('\n' + '='.repeat(72))
+console.log('Lite vs Lit Benchmark Report')
+console.log(`Near tie threshold: < ${NEAR_TIE_THRESHOLD_PERCENT}% lead`)
+printScoreboard(summaryRows)
+printWinnerHeadlines(summaryRows)
+printWinnerBreakdown(summaryRows)
+printFoucSummary(fouc)
+console.log('='.repeat(72) + '\n')

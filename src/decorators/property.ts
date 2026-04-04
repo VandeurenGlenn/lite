@@ -44,6 +44,7 @@ export const property = (options?: PropertyOptions) => {
     const tempKey = `__lite_${propertyKey}`
     const timeoutKey = `_${propertyKey}_timeout`
     const batchesKey = '_lite_batches'
+    const hasBatchTimeout = !!batches && batchDelay > 0
 
     if (options.provider) console.warn(`${propertyKey}: 'options.provider' is deprecated, use options.provides instead`)
     if (options.consumer) console.warn(`${propertyKey}: 'options.consumer' is deprecated, use options.consumes instead`)
@@ -70,13 +71,17 @@ export const property = (options?: PropertyOptions) => {
           return get.call(this)
         },
         set(value: any) {
-          return set.call(this, value)
+          if (this.beforeChange || this.willChange) return setAsync.call(this, value)
+          return setSync.call(this, value)
         },
         init(value: any): any {
-          if (this.hasAttribute(attributeName)) {
+          if (attribute && this.hasAttribute(attributeName)) {
             value = isBoolean ? this.hasAttribute(attributeName) : stringToType(this.getAttribute(attributeName), type)
           }
-          if (value !== undefined && !consumes) set.call(this, value)
+          if (value !== undefined && !consumes) {
+            if (this.beforeChange || this.willChange) setAsync.call(this, value)
+            else setSync.call(this, value)
+          }
           return this[name]
         }
       }
@@ -89,16 +94,16 @@ export const property = (options?: PropertyOptions) => {
       return this[tempKey] !== undefined ? this[tempKey] : this[liteKey]
     }
 
-    async function set(value) {
-      if (provides) pubsub.publish(provides, value)
+    function normalizeValue(value) {
+      // Values coming from attributeChangedCallback are string/null; normalize for boolean props.
+      if (isBoolean) {
+        if (value === '' || value === 'true') return true
+        if (value === null || value === 'false') return false
+      }
+      return value
+    }
 
-      if (this[liteKey] === value) return
-
-      if (this.beforeChange) await this.beforeChange(name, value)
-      if (this.willChange) this[tempKey] = await this.willChange(name, value)
-
-      const finalValue = this[tempKey] ?? value
-
+    function commitValue(value, finalValue) {
       if (attribute) {
         try {
           this._lite_reflecting = true
@@ -121,23 +126,57 @@ export const property = (options?: PropertyOptions) => {
         this[liteKey] = value
       }
 
-      // Inline performance critical path
-      if (renders && !this[batchesKey]) {
-        this[batchesKey] = true
-        queueMicrotask(() => {
-          this[batchesKey] = false
+      if (renders) {
+        // Before first render, batch property initialization work into one microtask.
+        // After mount, rely on LiteElement.requestRender() to dedupe scheduling.
+        if (this.renderedOnce) {
           if (this.requestRender) this.requestRender()
-        })
+        } else if (!this[batchesKey]) {
+          this[batchesKey] = true
+          queueMicrotask(() => {
+            this[batchesKey] = false
+            if (!this.renderedOnce && this.requestRender) this.requestRender()
+          })
+        }
       }
 
       if (this.onChange) this.onChange(name, finalValue)
 
-      if (batches && batchDelay > 0) {
+      if (hasBatchTimeout) {
         if (this[timeoutKey]) clearTimeout(this[timeoutKey])
         this[timeoutKey] = setTimeout(() => {
           if (this.onChange) this.onChange(name, finalValue)
         }, batchDelay)
       }
+    }
+
+    function setSync(value) {
+      if (isBoolean) value = normalizeValue(value)
+
+      // Hot path for plain state fields (no reflect/pubsub/render/batching/hooks).
+      if (!attribute && !provides && !renders && !hasBatchTimeout && !this.onChange) {
+        if (this[liteKey] === value) return
+        this[liteKey] = value
+        return
+      }
+
+      if (provides) pubsub.publish(provides, value)
+      if (this[liteKey] === value) return
+
+      commitValue.call(this, value, value)
+    }
+
+    async function setAsync(value) {
+      value = normalizeValue(value)
+
+      if (provides) pubsub.publish(provides, value)
+      if (this[liteKey] === value) return
+
+      if (this.beforeChange) await this.beforeChange(name, value)
+      if (this.willChange) this[tempKey] = await this.willChange(name, value)
+
+      const finalValue = this[tempKey] ?? value
+      commitValue.call(this, value, finalValue)
     }
   }
 }

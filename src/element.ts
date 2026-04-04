@@ -8,31 +8,62 @@ export declare interface ElementConstructor extends HTMLElement {
 }
 
 export type StyleList = CSSResult[] | CSSStyleSheet[] | CSSResult | CSSStyleSheet
-
 ;(Symbol as any).metadata ??= Symbol('metadata')
 
 class LiteElement extends HTMLElement {
-  private renderResolve: (value: boolean) => void
+  private static readonly resolvedRenderedPromise = Promise.resolve(true)
+  private static renderQueue = new Set<LiteElement>()
+  private static flushScheduled = false
+  private static flushRenderQueue = () => {
+    LiteElement.flushScheduled = false
+    const queue = LiteElement.renderQueue
+    LiteElement.renderQueue = new Set<LiteElement>()
+    for (const el of queue) {
+      el.performQueuedRender()
+    }
+  }
+
+  private renderResolve?: (value: boolean) => void
+  private renderedPromise: Promise<boolean> = LiteElement.resolvedRenderedPromise
+  private renderedPending = false
   private renderedOnce = false
   private listeners: [string, EventListenerOrEventListenerObject][] = []
   private renderScheduled = false
   private _lite_reflecting = false
-  private _microtaskRender = () => {
+  private performQueuedRender() {
     render(this.render(), this.shadowRoot)
     this.renderScheduled = false
-    this.renderResolve(true)
-    this.rendered = new Promise((resolve) => {
-      this.renderResolve = resolve
-    })
+    this.resolveRendered()
   }
 
-  rendered = new Promise<boolean>((resolve) => {
-    this.renderResolve = resolve
-  })
+  get rendered() {
+    if (!this.renderedPending && this.renderScheduled) this.ensureRenderedPromise()
+    return this.renderedPromise
+  }
 
   constructor() {
     super()
     this.attachShadow({ mode: 'open' })
+    this.applyStyles()
+  }
+
+  private ensureRenderedPromise() {
+    if (this.renderedPending) return
+    this.renderedPending = true
+    this.renderedPromise = new Promise<boolean>((resolve) => {
+      this.renderResolve = resolve
+    })
+  }
+
+  private resolveRendered() {
+    if (!this.renderedPending) return
+    this.renderResolve?.(true)
+    this.renderResolve = undefined
+    this.renderedPending = false
+    this.renderedPromise = LiteElement.resolvedRenderedPromise
+  }
+
+  private applyStyles() {
     const klass = this.constructor as unknown as typeof LiteElement
     const styles = klass.styles as (CSSResult | CSSStyleSheet)[] | CSSResult | CSSStyleSheet | undefined
     if (styles) {
@@ -78,18 +109,17 @@ class LiteElement extends HTMLElement {
   requestRender() {
     if (!this.renderedOnce) {
       render(this.render(), this.shadowRoot)
-      this.renderResolve(true)
-      queueMicrotask(() => {
-        this.rendered = new Promise((resolve) => {
-          this.renderResolve = resolve
-        })
-      })
+      this.resolveRendered()
       return
     }
 
     if (this.renderScheduled) return
     this.renderScheduled = true
-    queueMicrotask(this._microtaskRender)
+    LiteElement.renderQueue.add(this)
+    if (!LiteElement.flushScheduled) {
+      LiteElement.flushScheduled = true
+      queueMicrotask(LiteElement.flushRenderQueue)
+    }
   }
 
   static styles?: StyleList
