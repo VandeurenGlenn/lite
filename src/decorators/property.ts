@@ -59,6 +59,16 @@ export const property = (options?: PropertyOptions) => {
       if (kind !== 'accessor') {
         console.warn(`${this.localName}: @property(${options}) ${propertyKey} ${kind} is not supported`)
       }
+      // Always initialize property from attribute if present
+      if (attribute && this.hasAttribute(attributeName)) {
+        const attrValue = isBoolean
+          ? this.hasAttribute(attributeName)
+          : stringToType(this.getAttribute(attributeName), type)
+        // Only set if not already set by user/constructor
+        if (this[name] === undefined) {
+          this[name] = attrValue
+        }
+      }
       if (consumes) {
         pubsub.subscribe(consumes, async (value) => {
           this[name] = value
