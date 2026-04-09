@@ -65,26 +65,70 @@ class LiteElement extends HTMLElement {
 
   private applyStyles() {
     const klass = this.constructor as unknown as typeof LiteElement
-    const styles = klass.styles as (CSSResult | CSSStyleSheet)[] | CSSResult | CSSStyleSheet | undefined
-    if (styles) {
-      let adopted = (klass as any).__adoptedStyleSheets as CSSStyleSheet[] | undefined
-      if (!adopted) {
-        adopted = (Array.isArray(styles) ? styles : [styles]).map((s: any) => s.styleSheet ?? s)
-        ;(klass as any).__adoptedStyleSheets = adopted
-      }
-      this.shadowRoot.adoptedStyleSheets = adopted
+    const cached = (klass as any).__adoptedStyleSheets as CSSStyleSheet[] | null | undefined
+    if (cached === null) return
+    if (cached) {
+      this.shadowRoot.adoptedStyleSheets = cached
+      return
     }
+
+    const styles = klass.styles as (CSSResult | CSSStyleSheet)[] | CSSResult | CSSStyleSheet | undefined
+    if (!styles) {
+      ;(klass as any).__adoptedStyleSheets = null
+      return
+    }
+
+    const adopted = (Array.isArray(styles) ? styles : [styles]).map((s: any) => s.styleSheet ?? s)
+    ;(klass as any).__adoptedStyleSheets = adopted
+    this.shadowRoot.adoptedStyleSheets = adopted
   }
 
   static get observedAttributes() {
     // @ts-ignore
-    return this[Symbol.metadata]?.observedAttributes?.values() ?? []
+    const attrs = this[Symbol.metadata]?.observedAttributes
+    return attrs ? Array.from(attrs.values()) : []
   }
 
-  attributeChangedCallback(name: string, old: string, value: string) {
+  attributeChangedCallback(name: string, old: string | null, value: string | null) {
     if (this._lite_reflecting) return
-    if (this[name] !== value || old !== value) {
-      this[name] = value
+    const observed = (this.constructor as any)[Symbol.metadata]?.observedAttributes as Map<string, string> | undefined
+    const propertyKey =
+      observed && observed.size
+        ? (Array.from(observed.entries()).find(([, attributeName]) => attributeName === name)?.[0] ?? name)
+        : name
+
+    // Use Symbol.metadata for type conversion if available
+    const meta = (this.constructor as any)[Symbol.metadata]?.properties?.[propertyKey]
+    let convertedValue: any = value
+    if (meta && meta.type) {
+      switch (meta.type) {
+        case Boolean:
+          convertedValue = value !== null && value !== 'false'
+          break
+        case Number:
+          convertedValue = Number(value)
+          break
+        case Object:
+        case Array:
+          try {
+            convertedValue = JSON.parse(value)
+          } catch {
+            convertedValue = value
+          }
+          break
+        default:
+          convertedValue = value
+      }
+    } else {
+      const currentValue = (this as any)[propertyKey]
+      if (typeof currentValue === 'boolean') {
+        convertedValue = value !== null && value !== 'false'
+      } else if (typeof currentValue === 'number') {
+        convertedValue = value === null ? currentValue : Number(value)
+      }
+    }
+    if ((this as any)[propertyKey] !== convertedValue || old !== value) {
+      ;(this as any)[propertyKey] = convertedValue
       this.requestRender()
     }
   }

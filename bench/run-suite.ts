@@ -16,13 +16,22 @@ const bench = new Bench({ time: 500 })
 
 if (suite === 'create') {
   if (framework === 'lite') {
+    console.log('[DEBUG] Adding LiteElement create + first render')
     bench.add('LiteElement create + first render', async () => {
       const el = createLite()
       document.body.appendChild(el)
       await el.rendered
+      // Test attribute reflection
+      el.setAttribute('active', '')
+      await el.rendered
+      if (el.active !== true) throw new Error('Boolean attribute reflection failed')
+      el.removeAttribute('active')
+      await el.rendered
+      if (el.active !== false) throw new Error('Boolean attribute removal reflection failed')
       el.remove()
     })
 
+    console.log(`[DEBUG] Adding LiteElement create + first render x${MANY}`)
     bench.add(`LiteElement create + first render x${MANY}`, async () => {
       const frag = document.createDocumentFragment()
       const list = Array.from({ length: MANY }, () => createLite())
@@ -32,13 +41,21 @@ if (suite === 'create') {
       for (const el of list) el.remove()
     })
   } else {
+    console.log('[DEBUG] Adding LitElement create + first render')
     bench.add('LitElement create + first render', async () => {
       const el = createLit()
       document.body.appendChild(el)
       await el.updateComplete
+      el.setAttribute('active', '')
+      await el.updateComplete
+      if ((el as any).active !== true) throw new Error('Lit boolean attribute reflection failed')
+      el.removeAttribute('active')
+      await el.updateComplete
+      if ((el as any).active !== false) throw new Error('Lit boolean attribute removal reflection failed')
       el.remove()
     })
 
+    console.log(`[DEBUG] Adding LitElement create + first render x${MANY}`)
     bench.add(`LitElement create + first render x${MANY}`, async () => {
       const frag = document.createDocumentFragment()
       const list = Array.from({ length: MANY }, () => createLit())
@@ -109,20 +126,24 @@ if (suite === 'update') {
 
     bench.add('LitElement property update + render', async () => {
       single.count++
+      single.requestUpdate()
       await single.updateComplete
     })
 
     bench.add(`LitElement property update + render x${MANY}`, async () => {
       for (let i = 0; i < MANY; i++) {
         many[i].count++
+        many[i].requestUpdate()
       }
       await Promise.all(many.map((el) => el.updateComplete))
     })
   }
 }
 
+console.log('[DEBUG] Running benchmark suite')
 await bench.run()
 const table = bench.table()
+console.log(`[DEBUG] Finished running suite, table has ${table.length} rows`)
 console.log(`\n[${framework.toUpperCase()} ${suite.toUpperCase()} SUITE]`)
 console.table(table)
 console.log(`__BENCH_RESULT__${JSON.stringify({ suite, framework, table })}`)

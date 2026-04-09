@@ -5,8 +5,8 @@ const parseOps = (value: string | number) =>
   parseFloat(typeof value === 'string' ? value.replace(/,/g, '') : String(value))
 
 type BenchRow = {
-  'Task Name': string
-  'ops/sec': string | number
+  'Task name': string
+  'Throughput avg (ops/s)': string | number
 }
 
 type SuiteResult = {
@@ -97,13 +97,14 @@ const compareRows = (
   litTaskName: string,
   label: string
 ): MetricSummaryRow | null => {
-  const liteRow = liteTable.find((row) => row['Task Name'] === liteTaskName)
-  const litRow = litTable.find((row) => row['Task Name'] === litTaskName)
+  const liteRow = liteTable.find((row) => row['Task name'] === liteTaskName)
+  const litRow = litTable.find((row) => row['Task name'] === litTaskName)
 
   if (!liteRow || !litRow) return null
 
-  const liteOps = parseOps(liteRow['ops/sec'])
-  const litOps = parseOps(litRow['ops/sec'])
+  // Use 'Throughput avg (ops/s)' for ops/sec
+  const liteOps = parseOps(liteRow['Throughput avg (ops/s)'])
+  const litOps = parseOps(litRow['Throughput avg (ops/s)'])
   const winner: 'Lite' | 'Lit' | 'Tie' = liteOps === litOps ? 'Tie' : liteOps > litOps ? 'Lite' : 'Lit'
   const maxOps = Math.max(liteOps, litOps)
   const minOps = Math.min(liteOps, litOps)
@@ -201,11 +202,17 @@ const printFoucSummary = (fouc: FoucResult) => {
   }
 }
 
+console.log('[DEBUG] Starting Lite create suite')
 const liteCreate = runSuite('create', 'lite')
+console.log('[DEBUG] Finished Lite create suite')
 const litCreate = runSuite('create', 'lit')
+console.log('[DEBUG] Finished Lit create suite')
 const liteUpdate = runSuite('update', 'lite')
+console.log('[DEBUG] Finished Lite update suite')
 const litUpdate = runSuite('update', 'lit')
+console.log('[DEBUG] Finished Lit update suite')
 const fouc = runFouc()
+console.log('[DEBUG] Finished FOUC suite')
 
 const metricConfigs = [
   {
@@ -264,3 +271,4 @@ printWinnerHeadlines(summaryRows)
 printWinnerBreakdown(summaryRows)
 printFoucSummary(fouc)
 console.log('='.repeat(72) + '\n')
+console.log('[DEBUG] Benchmark script completed successfully')

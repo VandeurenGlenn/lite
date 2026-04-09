@@ -64,21 +64,24 @@ export const LIT_TAG = 'lit-bench-element-lit'
 @customElement(LITE_TAG)
 export class LiteBenchElement extends LiteElement {
   @property({ type: Number, renders: false }) accessor count = 0
+  @property({ type: Boolean, reflect: true, renders: false }) accessor active = false
 
   render() {
-    return html`<span>${this.count}</span>`
+    return html`<span>${this.count}</span><span>${this.active}</span>`
   }
 }
 
 export class LitBenchElement extends LitElement {
   static properties = {
-    count: { type: Number }
+    count: { type: Number },
+    active: { type: Boolean, reflect: true }
   }
 
   count = 0
+  active = false
 
   render() {
-    return litHtml`<span>${this.count}</span>`
+    return litHtml`<span>${this.count}</span><span>${this.active}</span>`
   }
 }
 

@@ -53,6 +53,33 @@ test('property decorator reflects attributes and toggles boolean', async () => {
   assert.is(el.open, false)
 })
 
+test('custom attribute name maps back to property key', async () => {
+  const tag = nextTag('lite-custom-attr')
+
+  @customElement(tag)
+  class CustomAttrEl extends LiteElement {
+    @property({ type: Boolean, reflect: true, attribute: 'is-open' }) accessor isOpen = false
+
+    render() {
+      return html`<div></div>`
+    }
+  }
+
+  const el = document.createElement(tag) as CustomAttrEl
+  document.body.appendChild(el)
+  await el.rendered
+
+  el.setAttribute('is-open', '')
+  assert.is(el.isOpen, true)
+
+  el.removeAttribute('is-open')
+  assert.is(el.isOpen, false)
+
+  el.isOpen = true
+  await el.rendered
+  assert.is(el.hasAttribute('is-open'), true)
+})
+
 test('provides/consumes synchronizes values', async () => {
   const channel = `channel-${Date.now()}`
   const providerTag = nextTag('lite-provider')
