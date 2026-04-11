@@ -14,6 +14,25 @@ class LiteElement extends HTMLElement {
   private static readonly resolvedRenderedPromise = Promise.resolve(true)
   private static renderQueue = new Set<LiteElement>()
   private static flushScheduled = false
+  private static getAttributePropertyMap(klass: any): Map<string, string> {
+    let map = klass.__attributeToPropertyMap as Map<string, string> | undefined
+    if (map) return map
+
+    map = new Map<string, string>()
+    const observed = klass[Symbol.metadata]?.observedAttributes as Map<string, string> | undefined
+    if (observed) {
+      for (const [propertyKey, attributeName] of observed.entries()) {
+        const attr = String(attributeName)
+        const prop = String(propertyKey)
+        map.set(attr, prop)
+        map.set(attr.toLowerCase(), prop)
+      }
+    }
+
+    klass.__attributeToPropertyMap = map
+    return map
+  }
+
   private static flushRenderQueue = () => {
     LiteElement.flushScheduled = false
     const queue = LiteElement.renderQueue
@@ -86,51 +105,23 @@ class LiteElement extends HTMLElement {
   static get observedAttributes() {
     // @ts-ignore
     const attrs = this[Symbol.metadata]?.observedAttributes
-    return attrs ? Array.from(attrs.values()) : []
+    if (!attrs) return []
+    const observed = new Set<string>()
+    for (const [, attributeName] of attrs.entries()) {
+      observed.add(attributeName)
+    }
+    return Array.from(observed)
   }
 
   attributeChangedCallback(name: string, old: string | null, value: string | null) {
     if (this._lite_reflecting) return
-    const observed = (this.constructor as any)[Symbol.metadata]?.observedAttributes as Map<string, string> | undefined
-    const propertyKey =
-      observed && observed.size
-        ? (Array.from(observed.entries()).find(([, attributeName]) => attributeName === name)?.[0] ?? name)
-        : name
 
-    // Use Symbol.metadata for type conversion if available
-    const meta = (this.constructor as any)[Symbol.metadata]?.properties?.[propertyKey]
-    let convertedValue: any = value
-    if (meta && meta.type) {
-      switch (meta.type) {
-        case Boolean:
-          convertedValue = value !== null && value !== 'false'
-          break
-        case Number:
-          convertedValue = Number(value)
-          break
-        case Object:
-        case Array:
-          try {
-            convertedValue = JSON.parse(value)
-          } catch {
-            convertedValue = value
-          }
-          break
-        default:
-          convertedValue = value
-      }
-    } else {
-      const currentValue = (this as any)[propertyKey]
-      if (typeof currentValue === 'boolean') {
-        convertedValue = value !== null && value !== 'false'
-      } else if (typeof currentValue === 'number') {
-        convertedValue = value === null ? currentValue : Number(value)
-      }
-    }
-    if ((this as any)[propertyKey] !== convertedValue || old !== value) {
-      ;(this as any)[propertyKey] = convertedValue
-      this.requestRender()
-    }
+    const klass = this.constructor as any
+    const attributeMap = LiteElement.getAttributePropertyMap(klass)
+    const propertyKey = attributeMap.get(name) ?? attributeMap.get(name.toLowerCase()) ?? name
+
+    // Decorator setter handles coercion
+    ;(this as any)[propertyKey] = value
   }
 
   connectedCallback() {

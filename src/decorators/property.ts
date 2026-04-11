@@ -26,15 +26,19 @@ const defaultOptions = {
   batchDelay: 0
 }
 
+const toAttributeName = (propertyKey: string) => propertyKey.replace(/([A-Z])/g, '-$1').toLowerCase()
+
 export const property = (options?: PropertyOptions) => {
   options = { ...defaultOptions, ...options }
   return function (ctor, { kind, name, addInitializer, access, metadata }: ClassAccessorDecoratorContext<LiteElement>) {
     const { type, reflect, renders, batches, batchDelay, consumer, provider } = options
 
-    const attribute = options.attribute ?? reflect
+    const observesAttribute = options.attribute !== false
 
     const propertyKey = String(name)
-    const attributeName = attribute && typeof attribute === 'string' ? attribute : propertyKey
+    const attributeName =
+      observesAttribute && typeof options.attribute === 'string' ? options.attribute : toAttributeName(propertyKey)
+    const shouldReflect = !!reflect && observesAttribute
     const isBoolean = type === Boolean
     const consumes = consumer ? attributeName : typeof options.consumes === 'boolean' ? attributeName : options.consumes
     const provides = provider ? attributeName : typeof options.provides === 'boolean' ? attributeName : options.provides
@@ -49,7 +53,7 @@ export const property = (options?: PropertyOptions) => {
     if (options.provider) console.warn(`${propertyKey}: 'options.provider' is deprecated, use options.provides instead`)
     if (options.consumer) console.warn(`${propertyKey}: 'options.consumer' is deprecated, use options.consumes instead`)
 
-    if (attribute) {
+    if (observesAttribute) {
       if (!metadata.observedAttributes) metadata.observedAttributes = new Map()
       // @ts-ignore
       metadata.observedAttributes.set(propertyKey, attributeName)
@@ -60,7 +64,7 @@ export const property = (options?: PropertyOptions) => {
         console.warn(`${this.localName}: @property(${options}) ${propertyKey} ${kind} is not supported`)
       }
       // Always initialize property from attribute if present
-      if (attribute && this.hasAttribute(attributeName)) {
+      if (observesAttribute && this.hasAttribute(attributeName)) {
         const attrValue = isBoolean
           ? this.hasAttribute(attributeName)
           : stringToType(this.getAttribute(attributeName), type)
@@ -85,7 +89,7 @@ export const property = (options?: PropertyOptions) => {
           return setSync.call(this, value)
         },
         init(value: any): any {
-          if (attribute && this.hasAttribute(attributeName)) {
+          if (observesAttribute && this.hasAttribute(attributeName)) {
             value = isBoolean ? this.hasAttribute(attributeName) : stringToType(this.getAttribute(attributeName), type)
           }
           if (value !== undefined && !consumes) {
@@ -98,23 +102,41 @@ export const property = (options?: PropertyOptions) => {
     }
 
     function get() {
-      if (attribute) {
-        return isBoolean ? this.hasAttribute(attributeName) : stringToType(this.getAttribute(attributeName), type)
-      }
       return this[tempKey] !== undefined ? this[tempKey] : this[liteKey]
     }
 
-    function normalizeValue(value) {
-      // Values coming from attributeChangedCallback are string/null; normalize for boolean props.
-      if (isBoolean) {
+    function coerceValue(value, currentValue) {
+      // Only coerce string/null values (from attributes); JS assignments already carry the right type
+      if (typeof value !== 'string' && value !== null) return value
+
+      if (type === Boolean) {
         if (value === '' || value === 'true') return true
         if (value === null || value === 'false') return false
+        return value
+      }
+      if (type === Number) return value === null ? currentValue : Number(value)
+      if (type === Object || type === Array) {
+        if (value === null) return null
+        try {
+          return JSON.parse(value)
+        } catch {
+          return value
+        }
+      }
+      if (!type) {
+        if (typeof currentValue === 'boolean') {
+          if (value === '' || value === 'true') return true
+          if (value === null || value === 'false') return false
+        }
+        if (typeof currentValue === 'number') return value === null ? currentValue : Number(value)
       }
       return value
     }
 
     function commitValue(value, finalValue) {
-      if (attribute) {
+      this[liteKey] = finalValue
+
+      if (shouldReflect && this.isConnected) {
         try {
           this._lite_reflecting = true
           if (isBoolean) {
@@ -123,7 +145,7 @@ export const property = (options?: PropertyOptions) => {
             } else {
               if (this.hasAttribute(attributeName)) this.removeAttribute(attributeName)
             }
-          } else if (finalValue) {
+          } else if (finalValue !== undefined && finalValue !== null) {
             const str = typeToString(type, finalValue)
             if (this.getAttribute(attributeName) !== str) this.setAttribute(attributeName, str)
           } else {
@@ -132,8 +154,6 @@ export const property = (options?: PropertyOptions) => {
         } finally {
           this._lite_reflecting = false
         }
-      } else {
-        this[liteKey] = value
       }
 
       if (renders) {
@@ -161,32 +181,34 @@ export const property = (options?: PropertyOptions) => {
     }
 
     function setSync(value) {
-      if (isBoolean) value = normalizeValue(value)
+      const currentValue = this[liteKey]
+      const coerced = coerceValue(value, currentValue)
 
       // Hot path for plain state fields (no reflect/pubsub/render/batching/hooks).
-      if (!attribute && !provides && !renders && !hasBatchTimeout && !this.onChange) {
-        if (this[liteKey] === value) return
-        this[liteKey] = value
+      if (!observesAttribute && !provides && !renders && !hasBatchTimeout && !this.onChange) {
+        if (currentValue === coerced) return
+        this[liteKey] = coerced
         return
       }
 
-      if (provides) pubsub.publish(provides, value)
-      if (this[liteKey] === value) return
+      if (provides) pubsub.publish(provides, coerced)
+      if (currentValue === coerced) return
 
-      commitValue.call(this, value, value)
+      commitValue.call(this, coerced, coerced)
     }
 
     async function setAsync(value) {
-      value = normalizeValue(value)
+      const currentValue = this[liteKey]
+      const coerced = coerceValue(value, currentValue)
 
-      if (provides) pubsub.publish(provides, value)
-      if (this[liteKey] === value) return
+      if (provides) pubsub.publish(provides, coerced)
+      if (currentValue === coerced) return
 
-      if (this.beforeChange) await this.beforeChange(name, value)
-      if (this.willChange) this[tempKey] = await this.willChange(name, value)
+      if (this.beforeChange) await this.beforeChange(name, coerced)
+      if (this.willChange) this[tempKey] = await this.willChange(name, coerced)
 
-      const finalValue = this[tempKey] ?? value
-      commitValue.call(this, value, finalValue)
+      const finalValue = this[tempKey] ?? coerced
+      commitValue.call(this, coerced, finalValue)
     }
   }
 }

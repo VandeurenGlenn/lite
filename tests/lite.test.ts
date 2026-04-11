@@ -53,6 +53,26 @@ test('property decorator reflects attributes and toggles boolean', async () => {
   assert.is(el.open, false)
 })
 
+test('attribute updates property without reflect', async () => {
+  const tag = nextTag('lite-attr-no-reflect')
+
+  @customElement(tag)
+  class AttrNoReflectEl extends LiteElement {
+    @property({ type: String }) accessor title = 'initial'
+
+    render() {
+      return html`<div>${this.title}</div>`
+    }
+  }
+
+  const el = document.createElement(tag) as AttrNoReflectEl
+  document.body.appendChild(el)
+  await el.rendered
+
+  el.setAttribute('title', 'from-attr')
+  assert.is(el.title, 'from-attr')
+})
+
 test('custom attribute name maps back to property key', async () => {
   const tag = nextTag('lite-custom-attr')
 
@@ -78,6 +98,81 @@ test('custom attribute name maps back to property key', async () => {
   el.isOpen = true
   await el.rendered
   assert.is(el.hasAttribute('is-open'), true)
+})
+
+test('camelCase property maps to kebab-case attribute by default', async () => {
+  const tag = nextTag('lite-camel-attr')
+
+  @customElement(tag)
+  class CamelAttrEl extends LiteElement {
+    @property({ type: Boolean, reflect: true }) accessor isOpen = false
+
+    render() {
+      return html`<div></div>`
+    }
+  }
+
+  const el = document.createElement(tag) as CamelAttrEl
+  document.body.appendChild(el)
+  await el.rendered
+
+  el.setAttribute('is-open', '')
+  assert.is(el.isOpen, true)
+
+  el.removeAttribute('is-open')
+  assert.is(el.isOpen, false)
+
+  el.isOpen = true
+  await el.rendered
+  assert.is(el.hasAttribute('is-open'), true)
+})
+
+test('number attribute keeps 0 when reflected', async () => {
+  const tag = nextTag('lite-number-attr')
+
+  @customElement(tag)
+  class NumberAttrEl extends LiteElement {
+    @property({ type: Number, reflect: true }) accessor count = 1
+
+    render() {
+      return html`<div>${this.count}</div>`
+    }
+  }
+
+  const el = document.createElement(tag) as NumberAttrEl
+  document.body.appendChild(el)
+  await el.rendered
+
+  el.setAttribute('count', '0')
+  assert.is(el.count, 0)
+
+  el.count = 0
+  await el.rendered
+  assert.is(el.getAttribute('count'), '0')
+})
+
+test('string attribute keeps empty string when reflected', async () => {
+  const tag = nextTag('lite-string-attr')
+
+  @customElement(tag)
+  class StringAttrEl extends LiteElement {
+    @property({ type: String, reflect: true }) accessor label = 'default'
+
+    render() {
+      return html`<div>${this.label}</div>`
+    }
+  }
+
+  const el = document.createElement(tag) as StringAttrEl
+  document.body.appendChild(el)
+  await el.rendered
+
+  el.setAttribute('label', '')
+  assert.is(el.label, '')
+
+  el.label = ''
+  await el.rendered
+  assert.is(el.getAttribute('label'), '')
 })
 
 test('provides/consumes synchronizes values', async () => {
