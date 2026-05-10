@@ -31,6 +31,19 @@ const toAttributeName = (propertyKey: string) => propertyKey.replace(/([A-Z])/g,
 export const property = (options?: PropertyOptions) => {
   options = { ...defaultOptions, ...options }
   return function (ctor, { kind, name, addInitializer, access, metadata }: ClassAccessorDecoratorContext<LiteElement>) {
+    // DEV-ONLY DIAGNOSTICS (tree-shakeable)
+    if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') {
+      // 1. Warn if not used on accessor
+      if (kind !== 'accessor') {
+        // eslint-disable-next-line no-console
+        console.warn(`@property should be used on accessor fields only: ${String(name)} (${kind})`)
+      }
+      // 2. Warn if reflect:true and attribute:false
+      if (options.reflect && options.attribute === false) {
+        // eslint-disable-next-line no-console
+        console.warn(`@property: reflect:true has no effect when attribute:false (${String(name)})`)
+      }
+    }
     const { type, reflect, renders, batches, batchDelay, consumer, provider } = options
 
     const observesAttribute = options.attribute !== false
@@ -57,6 +70,22 @@ export const property = (options?: PropertyOptions) => {
       if (!metadata.observedAttributes) metadata.observedAttributes = new Map()
       // @ts-ignore
       metadata.observedAttributes.set(propertyKey, attributeName)
+    }
+    // 3. Warn on invalid JSON for Object/Array coercion (dev only, only on attribute init)
+    if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') {
+      if ((options.type === Object || options.type === Array) && observesAttribute) {
+        addInitializer(function () {
+          if (this.hasAttribute && this.hasAttribute(attributeName)) {
+            const val = this.getAttribute(attributeName)
+            try {
+              if (val != null) JSON.parse(val)
+            } catch {
+              // eslint-disable-next-line no-console
+              console.warn(`@property: attribute '${attributeName}' for ${String(name)} is not valid JSON:`, val)
+            }
+          }
+        })
+      }
     }
 
     addInitializer(function () {

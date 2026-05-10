@@ -23,6 +23,14 @@
       "import": "./exports/cli.js",
       "types": "./exports/cli/cli/cli.d.ts"
     },
+    "./consume": {
+      "import": "./exports/consume.js",
+      "types": "./exports/cli/decorators/consume.d.ts"
+    },
+    "./consume.js": {
+      "import": "./exports/consume.js",
+      "types": "./exports/cli/decorators/consume.d.ts"
+    },
     "./custom-element": {
       "import": "./exports/custom-element.js",
       "types": "./exports/cli/decorators/custom-element.d.ts"
@@ -67,6 +75,14 @@
       "import": "./exports/index.js",
       "types": "./exports/cli/index.d.ts"
     },
+    "./listen": {
+      "import": "./exports/listen.js",
+      "types": "./exports/cli/decorators/listen.d.ts"
+    },
+    "./listen.js": {
+      "import": "./exports/listen.js",
+      "types": "./exports/cli/decorators/listen.d.ts"
+    },
     "./map": {
       "import": "./exports/map.js",
       "types": "./exports/cli/directives/map.d.ts"
@@ -82,6 +98,14 @@
     "./property.js": {
       "import": "./exports/property.js",
       "types": "./exports/cli/decorators/property.d.ts"
+    },
+    "./provide": {
+      "import": "./exports/provide.js",
+      "types": "./exports/cli/decorators/provide.d.ts"
+    },
+    "./provide.js": {
+      "import": "./exports/provide.js",
+      "types": "./exports/cli/decorators/provide.d.ts"
     },
     "./query-all": {
       "import": "./exports/query-all.js",
@@ -114,6 +138,14 @@
     "./repeat.js": {
       "import": "./exports/repeat.js",
       "types": "./exports/cli/decorators/repeat.d.ts"
+    },
+    "./store": {
+      "import": "./exports/store.js",
+      "types": "./exports/cli/store.d.ts"
+    },
+    "./store.js": {
+      "import": "./exports/store.js",
+      "types": "./exports/cli/store.d.ts"
     },
     "./types": {
       "import": "./exports/types.js",
