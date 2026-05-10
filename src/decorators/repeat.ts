@@ -1,5 +1,10 @@
 import { LiteElement } from '../element.js'
-import { arrayRepeat as arrayRepeatHelper, arrayRepeatBy } from '../helpers.js'
+import {
+  arrayRepeat as arrayRepeatHelper,
+  arrayRepeatBy,
+  createKeyedLazyRepeatState,
+  KeyedLazyRepeatState
+} from '../helpers.js'
 import { repeatDirective } from '../directives/repeat-directive.js'
 
 type ListSource<T> = string | ((host: LiteElement) => readonly T[] | T[] | null | undefined)
@@ -42,9 +47,11 @@ export function repeat<T>(
   const keyFn = templateMaybe
 
   return function (
-    ctor,
+    ctor: unknown,
     { kind, name, addInitializer }: ClassAccessorDecoratorContext<LiteElement>
   ): ClassAccessorDecoratorResult<LiteElement, unknown> {
+    const keyedStateKey = Symbol(`lite-repeat:${String(name)}`)
+
     if (kind !== 'accessor') {
       addInitializer(function () {
         console.warn(`${this.localName}: @repeat(${String(source)}) ${String(name)} ${kind} is not supported`)
@@ -58,7 +65,18 @@ export function repeat<T>(
             ? source(this)
             : ((this as unknown as Record<string, unknown>)[source] as T[] | null)
 
-        if (keyFn) return arrayRepeatBy(items, keyFn, template)
+        if (keyFn) {
+          const host = this as unknown as Record<PropertyKey, unknown>
+          let keyedState = host[keyedStateKey] as KeyedLazyRepeatState | undefined
+
+          if (!keyedState) {
+            keyedState = createKeyedLazyRepeatState()
+            host[keyedStateKey] = keyedState
+          }
+
+          return arrayRepeatBy(items, keyFn, template, keyedState)
+        }
+
         return arrayRepeatHelper(items, template)
       }
     }

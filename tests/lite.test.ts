@@ -248,12 +248,71 @@ test('repeat directive supports keyed signature', () => {
     { id: 'a', value: 1 },
     { id: 'b', value: 2 }
   ]
+  const originalWarn = console.warn
+  const warnings: unknown[] = []
+  console.warn = (message?: unknown, ...args: unknown[]) => {
+    warnings.push(message, ...args)
+  }
+
   const mapped = repeat(
     items,
     (item) => item.id,
     (item) => item.value
   )
+
+  console.warn = originalWarn
+
   assert.equal(mapped, [1, 2])
+  assert.ok(
+    warnings.some(
+      (warning) =>
+        warning ===
+        'repeat(items, keyFn, template) with non-template return values is deprecated. Use map(...) for plain value mapping.'
+    )
+  )
+})
+
+test('repeat directive preserves keyed node identity across reorder', async () => {
+  const tag = nextTag('lite-repeat-directive-keyed')
+
+  @customElement(tag)
+  class RepeatDirectiveKeyedEl extends LiteElement {
+    @property({ type: Array }) accessor items = [
+      { id: 'a', label: 'A' },
+      { id: 'b', label: 'B' },
+      { id: 'c', label: 'C' }
+    ]
+
+    render() {
+      return html`<ul>
+        ${repeat(
+          this.items,
+          (item) => item.id,
+          (item) => html`<li class="item">${item.label}</li>`
+        )}
+      </ul>`
+    }
+  }
+
+  const el = document.createElement(tag) as RepeatDirectiveKeyedEl
+  document.body.appendChild(el)
+  await el.rendered
+
+  const initialItems = Array.from(el.shadowRoot?.querySelectorAll('.item') ?? [])
+  assert.is(initialItems.length, 3)
+
+  el.items = [
+    { id: 'c', label: 'C' },
+    { id: 'a', label: 'A' },
+    { id: 'b', label: 'B' }
+  ]
+  await el.rendered
+
+  const reorderedItems = Array.from(el.shadowRoot?.querySelectorAll('.item') ?? [])
+  assert.is(reorderedItems.length, 3)
+  assert.is(reorderedItems[0], initialItems[2])
+  assert.is(reorderedItems[1], initialItems[0])
+  assert.is(reorderedItems[2], initialItems[1])
 })
 
 test('arrayRepeat helper returns empty list for missing items', () => {
@@ -290,6 +349,52 @@ test('repeat decorator renders and updates repeated templates', async () => {
 
   const updatedText = Array.from(el.shadowRoot?.querySelectorAll('.item') ?? []).map((node) => node.textContent)
   assert.equal(updatedText, ['3', '2', '1'])
+})
+
+test('repeat decorator preserves keyed lazy wrapper identity across reorder', async () => {
+  const tag = nextTag('lite-array-repeat-keyed')
+
+  @customElement(tag)
+  class KeyedArrayRepeatEl extends LiteElement {
+    @property({ type: Array }) accessor items = [
+      { id: 'a', label: 'A' },
+      { id: 'b', label: 'B' },
+      { id: 'c', label: 'C' }
+    ]
+
+    @repeat<{ id: string; label: string }>(
+      'items',
+      (item) => html`<li class="item">${item.label}</li>`,
+      (item) => item.id
+    )
+    accessor repeatedItems: unknown
+
+    render() {
+      return html`<ul>
+        ${this.repeatedItems}
+      </ul>`
+    }
+  }
+
+  const el = document.createElement(tag) as KeyedArrayRepeatEl
+  document.body.appendChild(el)
+  await el.rendered
+
+  const initialWrappers = Array.from(el.shadowRoot?.querySelectorAll('lite-lazy-repeat-item') ?? [])
+  assert.is(initialWrappers.length, 3)
+
+  el.items = [
+    { id: 'c', label: 'C' },
+    { id: 'a', label: 'A' },
+    { id: 'b', label: 'B' }
+  ]
+  await el.rendered
+
+  const reorderedWrappers = Array.from(el.shadowRoot?.querySelectorAll('lite-lazy-repeat-item') ?? [])
+  assert.is(reorderedWrappers.length, 3)
+  assert.is(reorderedWrappers[0], initialWrappers[2])
+  assert.is(reorderedWrappers[1], initialWrappers[0])
+  assert.is(reorderedWrappers[2], initialWrappers[1])
 })
 
 test('repeat decorator only renders intersecting items when IntersectionObserver is available', async () => {

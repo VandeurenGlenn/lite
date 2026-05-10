@@ -4,6 +4,12 @@ import { repeatDirective } from './directives/repeat-directive.js'
 
 type LazyRenderer = () => unknown
 
+type LazyRepeatKey = string | number | symbol
+
+export type KeyedLazyRepeatState = {
+  elements: Map<LazyRepeatKey, LiteLazyRepeatItem>
+}
+
 class LiteLazyRepeatItem extends HTMLElement {
   private observer?: IntersectionObserver
   private loaded = false
@@ -62,6 +68,20 @@ if (!customElements.get('lite-lazy-repeat-item')) {
   customElements.define('lite-lazy-repeat-item', LiteLazyRepeatItem)
 }
 
+const createLazyRepeatItem = <T>(
+  item: T,
+  index: number,
+  template: (item: T, index: number) => unknown
+): LiteLazyRepeatItem => {
+  const element = document.createElement('lite-lazy-repeat-item') as LiteLazyRepeatItem
+  element.renderer = () => template(item, index)
+  return element
+}
+
+export const createKeyedLazyRepeatState = (): KeyedLazyRepeatState => ({
+  elements: new Map<LazyRepeatKey, LiteLazyRepeatItem>()
+})
+
 export const stringToType = (string, type) => {
   let value: SupportedTypes = string
   if (type === Boolean) value = Boolean(string === 'true')
@@ -102,12 +122,25 @@ export const arrayRepeat = <T>(
 export const arrayRepeatBy = <T>(
   items: readonly T[] | null | undefined,
   keyFn: (item: T, index: number) => unknown,
-  template: (item: T, index: number) => unknown
+  template: (item: T, index: number) => unknown,
+  state: KeyedLazyRepeatState
 ): unknown => {
   if (!items?.length) return []
-  return repeatDirective(
-    items,
-    keyFn,
-    (item, index) => html`<lite-lazy-repeat-item .renderer=${() => template(item, index)}></lite-lazy-repeat-item>`
-  )
+
+  const nextElements = new Map<LazyRepeatKey, LiteLazyRepeatItem>()
+  const result = new Array<LiteLazyRepeatItem>(items.length)
+
+  for (let index = 0; index < items.length; index++) {
+    const item = items[index]
+    const key = keyFn(item, index) as LazyRepeatKey
+    const reused = nextElements.get(key) ?? state.elements.get(key)
+    const element = reused ?? createLazyRepeatItem(item, index, template)
+
+    element.renderer = () => template(item, index)
+    nextElements.set(key, element)
+    result[index] = element
+  }
+
+  state.elements = nextElements
+  return result
 }
