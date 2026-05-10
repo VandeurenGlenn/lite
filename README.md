@@ -1,5 +1,9 @@
 # lite
 
+## AI guide
+
+See [LLMS.md](./LLMS.md) for an AI-oriented guide with the public API, efficient usage patterns, and implementation-aware caveats.
+
 ## install
 
 ```sh
@@ -148,6 +152,22 @@ repeat(items, (item) => html`<li>${item}</li>`)
 repeat(items, (item) => item.id, (item) => html`<li>${item.label}</li>`)
 ```
 
+Use the keyed form when list items can be re-ordered, inserted, or removed and you want DOM identity to survive those changes.
+
+```js
+render() {
+  return html`
+    <ul>
+      ${repeat(
+        this.todos,
+        (todo) => todo.id,
+        (todo) => html`<todo-item .todo=${todo}></todo-item>`
+      )}
+    </ul>
+  `
+}
+```
+
 ### repeatBy (keyed repeat)
 
 There is no separate `repeatBy` export. `repeatBy` is the keyed form of `repeat`:
@@ -165,6 +185,8 @@ repeat(
   (todo) => html`<todo-item .todo=${todo}></todo-item>`
 )
 ```
+
+If you only need plain value mapping, use `map(...)` instead. Using `repeat(items, keyFn, template)` with non-template return values still works for compatibility, but it is deprecated.
 
 ### map directive
 
