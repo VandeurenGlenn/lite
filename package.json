@@ -4,7 +4,8 @@
   "description": "",
   "type": "module",
   "files": [
-    "exports"
+    "exports",
+    "./LLMS.md"
   ],
   "exports": {
     "./assigned-elements": {
