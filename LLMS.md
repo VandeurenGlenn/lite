@@ -491,3 +491,161 @@ If you only remember a few things, remember these:
 5. `map` is for simple mapping, `repeat` is simple repetition, and `@repeat` is the large-list lazy-render tool.
 6. `provides` and `consumes` are built-in shared-state channels.
 7. Prefer Lite hooks and decorators over manual DOM and lifecycle plumbing.
+
+## Migration Guide
+
+This section helps developers migrate from other frameworks or older versions of Lite to the current version.
+
+### Migrating from LitElement
+
+If you are transitioning from LitElement to Lite, follow these steps:
+
+1. **Extend `LiteElement` instead of `LitElement`:**
+   ```ts
+   import { LiteElement } from '@vandeurenglenn/lite'
+
+   class MyComponent extends LiteElement {
+     // ...existing code...
+   }
+   ```
+
+2. **Replace `@state` with `@property`:**
+   Lite does not use `@state`. Use `@property` with `renders: false` for internal state:
+   ```ts
+   @property({ renders: false }) accessor internalState = ''
+   ```
+
+3. **Use Lite hooks instead of lifecycle methods:**
+   Replace `updated`, `willUpdate`, and similar methods with Lite hooks like `willChange`, `onChange`, and `firstRender`.
+
+4. **Avoid `createRenderRoot`:**
+   Lite does not support `createRenderRoot`. Shadow DOM is enabled by default.
+
+5. **Use Lite decorators for DOM access:**
+   Replace manual `querySelector` calls with `@query` and `@queryAll`.
+   ```ts
+   @query('#input') accessor input?: HTMLInputElement
+   ```
+
+6. **Replace `html` and `css` imports:**
+   Use `html` and `css` from Lite instead of Lit.
+   ```ts
+   import { html, css } from '@vandeurenglenn/lite'
+   ```
+
+7. **Update property decorators:**
+   Lite uses `accessor` fields with `@property`.
+   ```ts
+   @property({ type: String }) accessor name = 'Anonymous'
+   ```
+
+8. **Remove `@internalProperty`:**
+   Use `@property` with `renders: false` for internal state.
+
+### Migrating from Older Lite Versions
+
+1. **Replace deprecated `provider` and `consumer`:**
+   Use `provides` and `consumes` instead.
+   ```ts
+   @property({ provides: 'channel-name' }) accessor value = ''
+   @property({ consumes: 'channel-name' }) accessor value = ''
+   ```
+
+2. **Update list rendering:**
+   Use `@repeat` for large lists and `map` for simple mappings.
+
+3. **Check for removed APIs:**
+   Ensure your code does not use removed APIs like `createRenderRoot` or `@state`.
+
+4. **Adopt new hooks:**
+   Replace custom lifecycle logic with `willChange`, `onChange`, and `firstRender`.
+
+5. **Use `rendered` promise:**
+   Replace arbitrary timers in tests with `await el.rendered`.
+
+### Migration Guide for LLMS
+
+This section provides guidance for language models (LLMs) to adapt their code generation from other frameworks or older versions of Lite to the current version.
+
+### Key Changes for LLMs
+
+1. **Extend `LiteElement` instead of `LitElement`:**
+   - Always use `LiteElement` as the base class for components.
+   - Avoid suggesting `LitElement`-specific APIs like `updated`, `willUpdate`, or `createRenderRoot`.
+
+2. **Use Lite's `@property` decorator:**
+   - Generate `@property` with `accessor` fields for reactive state.
+   - Avoid `@state` or `@internalProperty`.
+   ```ts
+   @property({ type: String }) accessor name = 'Anonymous'
+   ```
+
+3. **Prefer Lite hooks over lifecycle methods:**
+   - Replace `updated` and `connectedCallback` with Lite hooks like `willChange`, `onChange`, and `firstRender`.
+   ```ts
+   willChange(propertyKey, value) {
+     return value
+   }
+
+   onChange(propertyKey, value) {
+   }
+
+   firstRender() {
+   }
+   ```
+
+4. **Use Lite's `html` and `css`:**
+   - Always import `html` and `css` from Lite.
+   ```ts
+   import { html, css } from '@vandeurenglenn/lite'
+   ```
+
+5. **Generate efficient list rendering:**
+   - Use `map` for small lists and `@repeat` for large or expensive lists.
+   ```ts
+   ${map(this.items, (item) => html`<li>${item}</li>`)}
+   ```
+   ```ts
+   @repeat('rows', (row) => html`<li>${row.label}</li>`, (row) => row.id)
+   accessor visibleRows
+   ```
+
+6. **Avoid manual DOM manipulation:**
+   - Use `@query` and `@queryAll` for DOM access instead of `querySelector`.
+   ```ts
+   @query('#input') accessor input?: HTMLInputElement
+   ```
+
+7. **Adopt `provides` and `consumes` for shared state:**
+   - Replace custom global state plumbing with Lite's pubsub-backed properties.
+   ```ts
+   @property({ provides: 'channel-name' }) accessor value = ''
+   @property({ consumes: 'channel-name' }) accessor value = ''
+   ```
+
+8. **Use `static styles` for styling:**
+   - Avoid inline styles or manual style injection.
+   ```ts
+   static styles = css`
+     :host {
+       display: block;
+     }
+   `
+   ```
+
+9. **Generate tests with `await el.rendered`:**
+   - Replace arbitrary timers with `await el.rendered` in test code.
+   ```ts
+   const el = document.createElement('user-card')
+   document.body.appendChild(el)
+   await el.rendered
+   ```
+
+### General Guidance
+
+- Follow the [Lite AI Guide](#lite-ai-guide) for best practices.
+- Avoid introducing external frameworks or libraries unless explicitly requested.
+- Keep generated components small, direct, and under 500 lines.
+- Prefer declarative patterns and avoid manual DOM manipulation.
+
+By adhering to these guidelines, LLMs can generate code that aligns with Lite's philosophy and ensures compatibility with its current version.
