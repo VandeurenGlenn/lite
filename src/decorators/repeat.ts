@@ -5,19 +5,21 @@ import {
   createKeyedLazyRepeatState,
   KeyedLazyRepeatState
 } from '../helpers.js'
-import { repeatDirective } from '../directives/repeat-directive.js'
+import { repeatDirective, RepeatOptions } from '../directives/repeat-directive.js'
 
 type ListSource<T> = string | ((host: LiteElement) => readonly T[] | T[] | null | undefined)
 
 export function repeat<T>(
   items: readonly T[] | null | undefined,
-  template: (item: T, index: number) => unknown
+  template: (item: T, index: number) => unknown,
+  options?: RepeatOptions
 ): unknown[]
 
 export function repeat<T>(
   items: readonly T[] | null | undefined,
   keyFn: (item: T, index: number) => unknown,
-  template: (item: T, index: number) => unknown
+  template: (item: T, index: number) => unknown,
+  options?: RepeatOptions
 ): unknown[]
 
 export function repeat<T>(
@@ -32,19 +34,22 @@ export function repeat<T>(
 export function repeat<T>(
   itemsOrSource: readonly T[] | null | undefined | ListSource<T>,
   keyOrTemplate: (item: T, index: number) => unknown,
-  templateMaybe?: (item: T, index: number) => unknown
+  templateOrOptions?: ((item: T, index: number) => unknown) | RepeatOptions,
+  optionsMaybe?: RepeatOptions
 ): unknown {
   // Directive mode: repeat(items, template) or repeat(items, keyFn, template)
   if (Array.isArray(itemsOrSource) || itemsOrSource == null) {
     const items = itemsOrSource as readonly T[] | null | undefined
-    if (templateMaybe) return repeatDirective(items, keyOrTemplate, templateMaybe)
-    return repeatDirective(items, keyOrTemplate)
+    if (typeof templateOrOptions === 'function') {
+      return repeatDirective(items, keyOrTemplate, templateOrOptions, optionsMaybe)
+    }
+    return repeatDirective(items, keyOrTemplate, templateOrOptions)
   }
 
   // Decorator mode: @repeat('items', template, keyFn?)
   const source = itemsOrSource as ListSource<T>
   const template = keyOrTemplate
-  const keyFn = templateMaybe
+  const keyFn = typeof templateOrOptions === 'function' ? templateOrOptions : undefined
 
   return function (
     ctor: unknown,

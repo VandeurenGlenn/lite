@@ -150,9 +150,12 @@ Use repeat in templates for lists.
 ```js
 repeat(items, (item) => html`<li>${item}</li>`)
 repeat(items, (item) => item.id, (item) => html`<li>${item.label}</li>`)
+repeat(items, (item) => html`<li>${item}</li>`, { lazy: true })
+repeat(items, (item) => item.id, (item) => html`<li>${item.label}</li>`, { lazy: true })
 ```
 
 Use the keyed form when list items can be re-ordered, inserted, or removed and you want DOM identity to survive those changes.
+Use `{ lazy: true }` when you want rows rendered only after they intersect the viewport.
 
 ```js
 render() {
@@ -197,6 +200,33 @@ import { map, html } from '@vandeurenglenn/lite'
 
 map(items, (item, i) => html`<li data-index=${i}>${item}</li>`)
 ```
+
+### store
+
+Use `createStore` for simple shared app state outside component instances.
+
+```js
+import { createStore } from '@vandeurenglenn/lite'
+
+const store = createStore({ count: 0, filter: 'all' })
+
+const unsubscribe = store.subscribe((state) => {
+  console.log('store changed', state)
+})
+
+store.set({ count: 1 })
+store.set({ filter: 'done' })
+
+console.log(store.get()) // { count: 1, filter: 'done' }
+
+unsubscribe()
+```
+
+Notes:
+
+- `set(updates)` shallow-merges into the current state.
+- `get()` returns the latest state snapshot.
+- `subscribe(callback)` returns an unsubscribe function.
 
 ### repeat decorator (lazy viewport rendering)
 

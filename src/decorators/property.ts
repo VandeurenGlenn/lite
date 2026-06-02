@@ -71,6 +71,26 @@ export const property = (options?: PropertyOptions) => {
       // @ts-ignore
       metadata.observedAttributes.set(propertyKey, attributeName)
     }
+    if (shouldReflect) {
+      // @ts-ignore
+      if (!metadata.reflectingProperties) metadata.reflectingProperties = new Map()
+      // @ts-ignore
+      metadata.reflectingProperties.set(propertyKey, function (this: any) {
+        const finalValue = this[liteKey]
+        if (isBoolean) {
+          if (finalValue) {
+            if (!this.hasAttribute(attributeName)) this.setAttribute(attributeName, '')
+          } else {
+            if (this.hasAttribute(attributeName)) this.removeAttribute(attributeName)
+          }
+        } else if (finalValue !== undefined && finalValue !== null) {
+          const str = typeToString(type, finalValue)
+          if (this.getAttribute(attributeName) !== str) this.setAttribute(attributeName, str)
+        } else {
+          if (this.hasAttribute(attributeName)) this.removeAttribute(attributeName)
+        }
+      })
+    }
     // 3. Warn on invalid JSON for Object/Array coercion (dev only, only on attribute init)
     if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') {
       if ((options.type === Object || options.type === Array) && observesAttribute) {

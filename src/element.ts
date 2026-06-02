@@ -125,10 +125,23 @@ class LiteElement extends HTMLElement {
   }
 
   connectedCallback() {
+    this.reflectConnectedProperties()
     if (this.beforeRender) this.beforeRender()
     this.requestRender()
     this.renderedOnce = true
     if (this.firstRender) this.firstRender()
+  }
+
+  private reflectConnectedProperties() {
+    const klass = this.constructor as any
+    const reflecting = klass[Symbol.metadata]?.reflectingProperties as Map<string, () => void> | undefined
+    if (!reflecting) return
+    this._lite_reflecting = true
+    try {
+      for (const reflect of reflecting.values()) reflect.call(this)
+    } finally {
+      this._lite_reflecting = false
+    }
   }
 
   disconnectedCallback() {

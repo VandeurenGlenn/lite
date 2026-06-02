@@ -315,6 +315,104 @@ test('repeat directive preserves keyed node identity across reorder', async () =
   assert.is(reorderedItems[2], initialItems[1])
 })
 
+test('repeat directive lazy mode only renders intersecting items when IntersectionObserver is available', async () => {
+  const originalIO = (globalThis as any).IntersectionObserver
+
+  class FakeIntersectionObserver {
+    static instances: FakeIntersectionObserver[] = []
+    callback: IntersectionObserverCallback
+    target: Element | null = null
+
+    constructor(callback: IntersectionObserverCallback) {
+      this.callback = callback
+      FakeIntersectionObserver.instances.push(this)
+    }
+
+    observe(target: Element) {
+      this.target = target
+    }
+
+    disconnect() {}
+
+    triggerIntersecting() {
+      if (!this.target) return
+      this.callback([{ isIntersecting: true, target: this.target } as IntersectionObserverEntry], this as any)
+    }
+  }
+
+  ;(globalThis as any).IntersectionObserver = FakeIntersectionObserver as any
+
+  const tag = nextTag('lite-repeat-directive-lazy')
+
+  @customElement(tag)
+  class RepeatDirectiveLazyEl extends LiteElement {
+    @property({ type: Array }) accessor items = [1, 2, 3, 4]
+
+    render() {
+      return html`<ul>
+        ${repeat(this.items, (item) => html`<li class="lazy-item">${item}</li>`, { lazy: true })}
+      </ul>`
+    }
+  }
+
+  const el = document.createElement(tag) as RepeatDirectiveLazyEl
+  document.body.appendChild(el)
+  await el.rendered
+
+  assert.is(el.shadowRoot?.querySelectorAll('lite-lazy-repeat-item').length, 4)
+  assert.is(el.shadowRoot?.querySelectorAll('.lazy-item').length, 0)
+
+  FakeIntersectionObserver.instances[0]?.triggerIntersecting()
+  FakeIntersectionObserver.instances[1]?.triggerIntersecting()
+
+  assert.is(el.shadowRoot?.querySelectorAll('.lazy-item').length, 2)
+  ;(globalThis as any).IntersectionObserver = originalIO
+})
+
+test('repeat directive lazy keyed mode preserves wrapper identity across reorder', async () => {
+  const tag = nextTag('lite-repeat-directive-lazy-keyed')
+
+  @customElement(tag)
+  class RepeatDirectiveLazyKeyedEl extends LiteElement {
+    @property({ type: Array }) accessor items = [
+      { id: 'a', label: 'A' },
+      { id: 'b', label: 'B' },
+      { id: 'c', label: 'C' }
+    ]
+
+    render() {
+      return html`<ul>
+        ${repeat(
+          this.items,
+          (item) => item.id,
+          (item) => html`<li class="item">${item.label}</li>`,
+          { lazy: true }
+        )}
+      </ul>`
+    }
+  }
+
+  const el = document.createElement(tag) as RepeatDirectiveLazyKeyedEl
+  document.body.appendChild(el)
+  await el.rendered
+
+  const initialWrappers = Array.from(el.shadowRoot?.querySelectorAll('lite-lazy-repeat-item') ?? [])
+  assert.is(initialWrappers.length, 3)
+
+  el.items = [
+    { id: 'c', label: 'C' },
+    { id: 'a', label: 'A' },
+    { id: 'b', label: 'B' }
+  ]
+  await el.rendered
+
+  const reorderedWrappers = Array.from(el.shadowRoot?.querySelectorAll('lite-lazy-repeat-item') ?? [])
+  assert.is(reorderedWrappers.length, 3)
+  assert.is(reorderedWrappers[0], initialWrappers[2])
+  assert.is(reorderedWrappers[1], initialWrappers[0])
+  assert.is(reorderedWrappers[2], initialWrappers[1])
+})
+
 test('arrayRepeat helper returns empty list for missing items', () => {
   const result = arrayRepeatHelper(undefined, (item) => item)
   assert.equal(result, [])

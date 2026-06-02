@@ -1,7 +1,5 @@
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
 
-const pubsub = new LittlePubSub()
-
 export interface Store<T> {
   get(): T
   set(updates: Partial<T>): void
@@ -9,6 +7,7 @@ export interface Store<T> {
 }
 
 export function createStore<T extends Record<string, unknown>>(initialState: T): Store<T> {
+  const pubsub = new LittlePubSub()
   let state: T = initialState
   return {
     get() {
@@ -16,11 +15,11 @@ export function createStore<T extends Record<string, unknown>>(initialState: T):
     },
     set(updates) {
       state = { ...state, ...updates }
-      pubsub.emit('store-changed', state)
+      pubsub.publish('store-changed', state)
     },
     subscribe(callback) {
-      pubsub.on('store-changed', callback)
-      return () => pubsub.off('store-changed', callback)
+      pubsub.subscribe('store-changed', callback)
+      return () => pubsub.unsubscribe('store-changed', callback)
     }
   }
 }
