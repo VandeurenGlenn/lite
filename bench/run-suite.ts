@@ -101,6 +101,17 @@ if (suite === 'update') {
         el.requestRender()
       }
     })
+
+    bench.add('LiteElement reflected property update', () => {
+      single.active = !single.active
+    })
+
+    bench.add(`LiteElement reflected property update x${MANY}`, () => {
+      for (let i = 0; i < MANY; i++) {
+        const el = many[i]
+        el.active = !el.active
+      }
+    })
   } else {
     const single = createLit()
     document.body.appendChild(single)
@@ -135,6 +146,16 @@ if (suite === 'update') {
         many[i].count++
         many[i].requestUpdate()
       }
+      await Promise.all(many.map((el) => el.updateComplete))
+    })
+
+    bench.add('LitElement reflected property update', async () => {
+      single.active = !single.active
+      await single.updateComplete
+    })
+
+    bench.add(`LitElement reflected property update x${MANY}`, async () => {
+      for (let i = 0; i < MANY; i++) many[i].active = !many[i].active
       await Promise.all(many.map((el) => el.updateComplete))
     })
   }

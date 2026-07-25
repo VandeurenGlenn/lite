@@ -1,7 +1,19 @@
 import { test } from 'uvu'
 import * as assert from 'uvu/assert'
 import './setup.js'
-import { LiteElement, html, property, query, queryAll, customElement, darkMode, listen, map, repeat } from '../src/index.js'
+import {
+  LiteElement,
+  html,
+  property,
+  query,
+  queryAll,
+  assignedElements,
+  customElement,
+  darkMode,
+  listen,
+  map,
+  repeat
+} from '../src/index.js'
 import { arrayRepeat as arrayRepeatHelper } from '../src/helpers.js'
 
 let tagCounter = 0
@@ -24,6 +36,29 @@ test('customElement registers and renders', async () => {
   const content = el.shadowRoot?.querySelector('#content')
   assert.ok(content)
   assert.is(content?.textContent, 'hello')
+})
+
+test('assignedElements reads a named slot from the host shadow root', async () => {
+  const tag = nextTag('lite-assigned')
+  @customElement(tag)
+  class AssignedEl extends LiteElement {
+    @assignedElements('actions') accessor actions!: Element[]
+
+    render() {
+      return html`<slot name="actions"></slot>`
+    }
+  }
+
+  const el = document.createElement(tag) as AssignedEl
+  const action = document.createElement('button')
+  action.slot = 'actions'
+  el.appendChild(action)
+  document.body.appendChild(el)
+  await el.rendered
+
+  assert.equal(el.actions, [action])
+  el.shadowRoot?.querySelector('slot')?.remove()
+  assert.equal(el.actions, [])
 })
 
 test('property decorator reflects attributes and toggles boolean', async () => {
@@ -51,6 +86,26 @@ test('property decorator reflects attributes and toggles boolean', async () => {
   await el.rendered
   assert.is(el.hasAttribute('open'), false)
   assert.is(el.open, false)
+})
+
+test('property decorator round-trips array and map attributes', async () => {
+  const tag = nextTag('lite-structured-property')
+  @customElement(tag)
+  class StructuredPropertyEl extends LiteElement {
+    @property({ type: Array, reflect: true, renders: false }) accessor items = ['initial']
+    @property({ type: Map, reflect: true, renders: false }) accessor entries = new Map([['initial', 1]])
+  }
+
+  const el = document.createElement(tag) as StructuredPropertyEl
+  document.body.appendChild(el)
+
+  assert.is(el.getAttribute('items'), '["initial"]')
+  assert.is(el.getAttribute('entries'), '[["initial",1]]')
+
+  el.setAttribute('items', '["updated",2]')
+  el.setAttribute('entries', '[["updated",2]]')
+  assert.equal(el.items, ['updated', 2])
+  assert.equal([...el.entries], [['updated', 2]])
 })
 
 test('attribute updates property without reflect', async () => {
@@ -382,6 +437,133 @@ test('listen supports window targets without leaking detached hosts', () => {
   el.remove()
   window.dispatchEvent(new Event('lite-window-ping'))
   assert.is(el.calls, 1)
+})
+
+test('listen delegates selector targets across rendered replacements and reconnects', async () => {
+  const tag = nextTag('lite-listen-selector')
+
+  @customElement(tag)
+  class SelectorListenEl extends LiteElement {
+    calls = 0
+
+    @listen('click', { target: '.action' })
+    onAction() {
+      this.calls++
+    }
+
+    render() {
+      return html`<button class="action">action</button>`
+    }
+  }
+
+  const el = document.createElement(tag) as SelectorListenEl
+  document.body.appendChild(el)
+  await el.rendered
+
+  const first = el.shadowRoot.querySelector('.action')!
+  first.dispatchEvent(new Event('click', { bubbles: true, composed: true }))
+  assert.is(el.calls, 1)
+
+  const replacement = document.createElement('button')
+  replacement.className = 'action'
+  first.replaceWith(replacement)
+  replacement.dispatchEvent(new Event('click', { bubbles: true, composed: true }))
+  assert.is(el.calls, 2)
+
+  el.remove()
+  replacement.dispatchEvent(new Event('click', { bubbles: true, composed: true }))
+  assert.is(el.calls, 2)
+
+  document.body.appendChild(el)
+  replacement.dispatchEvent(new Event('click', { bubbles: true, composed: true }))
+  assert.is(el.calls, 3)
+})
+
+test('listen selector once ignores unrelated events before the match', async () => {
+  const tag = nextTag('lite-listen-selector-once')
+
+  @customElement(tag)
+  class SelectorOnceEl extends LiteElement {
+    calls = 0
+
+    @listen('click', { target: '.action', options: { once: true } })
+    onAction() {
+      this.calls++
+    }
+
+    render() {
+      return html`<button class="other">other</button><button class="action">action</button>`
+    }
+  }
+
+  const el = document.createElement(tag) as SelectorOnceEl
+  document.body.appendChild(el)
+  await el.rendered
+
+  const event = () => new Event('click', { bubbles: true, composed: true })
+  el.shadowRoot.querySelector('.other')!.dispatchEvent(event())
+  el.shadowRoot.querySelector('.action')!.dispatchEvent(event())
+  el.shadowRoot.querySelector('.action')!.dispatchEvent(event())
+  assert.is(el.calls, 1)
+})
+
+test('listen selector handles slotchange inside the shadow root', async () => {
+  const tag = nextTag('lite-listen-slot')
+
+  @customElement(tag)
+  class SlotListenEl extends LiteElement {
+    calls = 0
+
+    @listen('slotchange', { target: 'slot[name="leading-icon"]' })
+    onLeadingIconChange() {
+      this.calls++
+    }
+
+    render() {
+      return html`<slot name="leading-icon"></slot>`
+    }
+  }
+
+  const el = document.createElement(tag) as SlotListenEl
+  document.body.appendChild(el)
+  await el.rendered
+  el.shadowRoot.querySelector('slot')!.dispatchEvent(new Event('slotchange', { bubbles: true }))
+  assert.is(el.calls, 1)
+})
+
+test('listen resolver targets are resolved again after reconnect', () => {
+  const tag = nextTag('lite-listen-resolver')
+  const firstTarget = new EventTarget()
+  const secondTarget = new EventTarget()
+
+  @customElement(tag)
+  class ResolverListenEl extends LiteElement {
+    calls = 0
+    listenTarget: EventTarget | undefined = firstTarget
+
+    @listen('lite-resolved-ping', { target: (host: ResolverListenEl) => host.listenTarget })
+    onPing() {
+      this.calls++
+    }
+  }
+
+  const el = document.createElement(tag) as ResolverListenEl
+  document.body.appendChild(el)
+  firstTarget.dispatchEvent(new Event('lite-resolved-ping'))
+  assert.is(el.calls, 1)
+
+  el.remove()
+  el.listenTarget = undefined
+  document.body.appendChild(el)
+  firstTarget.dispatchEvent(new Event('lite-resolved-ping'))
+  assert.is(el.calls, 1)
+
+  el.remove()
+  el.listenTarget = secondTarget
+  document.body.appendChild(el)
+  firstTarget.dispatchEvent(new Event('lite-resolved-ping'))
+  secondTarget.dispatchEvent(new Event('lite-resolved-ping'))
+  assert.is(el.calls, 2)
 })
 
 test('addListener attaches immediately and follows connection lifecycle', () => {

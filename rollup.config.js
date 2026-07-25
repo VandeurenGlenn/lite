@@ -8,6 +8,15 @@ import commonjs from '@rollup/plugin-commonjs'
 import { unlink } from 'fs/promises'
 import { parse } from 'path'
 
+const minify = () =>
+  terser({
+    compress: {
+      global_defs: {
+        'process.env.NODE_ENV': 'production'
+      }
+    }
+  })
+
 try {
   const exports = await glob('exports/**/*')
 
@@ -48,7 +57,7 @@ export default [
       format: 'es',
       dir: 'exports'
     },
-    plugins: [typescript(), autoExports(), terser()]
+    plugins: [typescript(), autoExports(), minify()]
   },
   // Browser bundle: roll up dependencies into a single ESM for direct use in the browser
   {
@@ -62,7 +71,7 @@ export default [
       resolve({ browser: true, exportConditions: ['browser', 'module', 'default'], preferBuiltins: false }),
       commonjs(),
       typescript({ compilerOptions: { outDir: 'www' } }),
-      terser()
+      minify()
     ]
   }
 ]

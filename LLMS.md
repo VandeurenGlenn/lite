@@ -173,6 +173,34 @@ Practical guidance:
 - use `firstRender` for post-render DOM-dependent work
 - prefer these hooks instead of custom `connectedCallback()` logic when possible
 
+## Event listeners
+
+Use `@listen` for listeners that should follow the host's connection lifecycle:
+
+```ts
+@listen('click')
+onClick(event: Event) {}
+
+@listen('resize', { target: 'window' })
+onResize(event: Event) {}
+```
+
+Selector targets are delegated from the shadow root, so they work with rendered and replaced elements:
+
+```ts
+@listen('slotchange', { target: 'slot[name="leading-icon"]' })
+onLeadingIconChange(event: Event) {}
+```
+
+Resolver targets are evaluated on every connection and may return no target:
+
+```ts
+@listen('change', { target: host => host.mediaQuery })
+onMediaChange(event: Event) {}
+```
+
+`@listen` supports public instance methods. Private and static methods are not supported.
+
 ## Waiting for rendering
 
 Lite exposes a `rendered` promise.

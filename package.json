@@ -24,6 +24,14 @@
       "import": "./exports/cli.js",
       "types": "./exports/cli/cli/cli.d.ts"
     },
+    "./coercion": {
+      "import": "./exports/coercion.js",
+      "types": "./exports/cli/coercion.d.ts"
+    },
+    "./coercion.js": {
+      "import": "./exports/coercion.js",
+      "types": "./exports/cli/coercion.d.ts"
+    },
     "./consume": {
       "import": "./exports/consume.js",
       "types": "./exports/cli/decorators/consume.d.ts"

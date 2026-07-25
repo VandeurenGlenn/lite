@@ -57,7 +57,7 @@ export function repeat<T>(
   ): ClassAccessorDecoratorResult<LiteElement, unknown> {
     const keyedStateKey = Symbol(`lite-repeat:${String(name)}`)
 
-    if (kind !== 'accessor') {
+    if (process.env.NODE_ENV !== 'production' && kind !== 'accessor') {
       addInitializer(function () {
         console.warn(`${this.localName}: @repeat(${String(source)}) ${String(name)} ${kind} is not supported`)
       })

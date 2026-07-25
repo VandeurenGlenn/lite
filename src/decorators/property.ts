@@ -1,7 +1,9 @@
 import { pubsub } from '../pubsub.js'
 import { LiteElement } from '../element.js'
 import { PropertyOptions } from '../types.js'
-import { stringToType, typeToString } from '../helpers.js'
+import { stringToType, typeToString } from '../coercion.js'
+
+const isDev = process.env.NODE_ENV !== 'production'
 
 /**
  * @example
@@ -14,20 +16,13 @@ import { stringToType, typeToString } from '../helpers.js'
  * ```
  */
 
-const defaultOptions = {
-  type: String,
-  reflect: false,
-  renders: true,
-  batchDelay: 0
-}
-
 const toAttributeName = (propertyKey: string) => propertyKey.replace(/([A-Z])/g, '-$1').toLowerCase()
 
 export const property = (options?: PropertyOptions) => {
-  options = { ...defaultOptions, ...options }
-  return function (ctor, { kind, name, addInitializer, access, metadata }: ClassAccessorDecoratorContext<LiteElement>) {
+  options ??= {}
+  return function (ctor, { kind, name, addInitializer, metadata }: ClassAccessorDecoratorContext<LiteElement>) {
     // DEV-ONLY DIAGNOSTICS (tree-shakeable)
-    if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') {
+    if (isDev) {
       // 1. Warn if not used on accessor
       if (kind !== 'accessor') {
         // eslint-disable-next-line no-console
@@ -38,8 +33,13 @@ export const property = (options?: PropertyOptions) => {
         // eslint-disable-next-line no-console
         console.warn(`@property: reflect:true has no effect when attribute:false (${String(name)})`)
       }
+      if (options.provider) console.warn(`${String(name)}: 'options.provider' is deprecated, use options.provides instead`)
+      if (options.consumer) console.warn(`${String(name)}: 'options.consumer' is deprecated, use options.consumes instead`)
     }
-    const { type, reflect, renders, batches, batchDelay, consumer, provider } = options
+    const type = options.type ?? String
+    const renders = options.renders ?? true
+    const batchDelay = options.batchDelay ?? 0
+    const { reflect, batches, consumer, provider } = options
 
     const observesAttribute = options.attribute !== false
 
@@ -57,9 +57,6 @@ export const property = (options?: PropertyOptions) => {
     const timeoutKey = `_${propertyKey}_timeout`
     const batchesKey = '_lite_batches'
     const hasBatchTimeout = !!batches && batchDelay > 0
-
-    if (options.provider) console.warn(`${propertyKey}: 'options.provider' is deprecated, use options.provides instead`)
-    if (options.consumer) console.warn(`${propertyKey}: 'options.consumer' is deprecated, use options.consumes instead`)
 
     if (observesAttribute) {
       if (!metadata.observedAttributes) metadata.observedAttributes = new Map()
@@ -87,7 +84,7 @@ export const property = (options?: PropertyOptions) => {
       })
     }
     // 3. Warn on invalid JSON for Object/Array coercion (dev only, only on attribute init)
-    if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') {
+    if (isDev) {
       if ((options.type === Object || options.type === Array) && observesAttribute) {
         addInitializer(function () {
           if (this.hasAttribute && this.hasAttribute(attributeName)) {
@@ -104,7 +101,7 @@ export const property = (options?: PropertyOptions) => {
     }
 
     addInitializer(function () {
-      if (kind !== 'accessor') {
+      if (isDev && kind !== 'accessor') {
         console.warn(`${this.localName}: @property(${options}) ${propertyKey} ${kind} is not supported`)
       }
       // Always initialize property from attribute if present
@@ -163,10 +160,10 @@ export const property = (options?: PropertyOptions) => {
         return value
       }
       if (type === Number) return value === null ? currentValue : Number(value)
-      if (type === Object || type === Array) {
+      if (type === Object || type === Array || type === Map || type === WeakMap) {
         if (value === null) return null
         try {
-          return JSON.parse(value)
+          return stringToType(value, type)
         } catch {
           return value
         }
