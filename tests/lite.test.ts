@@ -1,7 +1,7 @@
 import { test } from 'uvu'
 import * as assert from 'uvu/assert'
 import './setup.js'
-import { LiteElement, html, property, query, queryAll, customElement, map, repeat } from '../src/index.js'
+import { LiteElement, html, property, query, queryAll, customElement, darkMode, map, repeat } from '../src/index.js'
 import { arrayRepeat as arrayRepeatHelper } from '../src/helpers.js'
 
 let tagCounter = 0
@@ -206,6 +206,120 @@ test('provides/consumes synchronizes values', async () => {
   provider.value = 'updated'
   await consumer.rendered
   assert.is(consumer.value, 'updated')
+})
+
+test('consumers unsubscribe when detached and resubscribe when reconnected', async () => {
+  const channel = `lifecycle-channel-${Date.now()}`
+  const providerTag = nextTag('lite-lifecycle-provider')
+  const consumerTag = nextTag('lite-lifecycle-consumer')
+
+  @customElement(providerTag)
+  class ProviderEl extends LiteElement {
+    @property({ provides: channel }) accessor value = 'initial'
+  }
+
+  @customElement(consumerTag)
+  class ConsumerEl extends LiteElement {
+    @property({ consumes: channel }) accessor value: string
+  }
+
+  const provider = document.createElement(providerTag) as ProviderEl
+  const consumer = document.createElement(consumerTag) as ConsumerEl
+  document.body.append(provider, consumer)
+  assert.is(consumer.value, 'initial')
+
+  consumer.remove()
+  provider.value = 'while-detached'
+  assert.is(consumer.value, 'initial')
+
+  document.body.appendChild(consumer)
+  assert.is(consumer.value, 'while-detached')
+})
+
+test('async property changes keep the newest assignment', async () => {
+  const tag = nextTag('lite-async-order')
+  const resolvers = new Map<string, (value: string) => void>()
+
+  @customElement(tag)
+  class AsyncOrderEl extends LiteElement {
+    @property() accessor value: string
+
+    willChange(_propertyKey: string, value: string): Promise<string> {
+      return new Promise((resolve) => resolvers.set(value, resolve))
+    }
+  }
+
+  const el = document.createElement(tag) as AsyncOrderEl
+  document.body.appendChild(el)
+  el.value = 'older'
+  el.value = 'newer'
+
+  resolvers.get('newer')?.('newer')
+  await Promise.resolve()
+  resolvers.get('older')?.('older')
+  await Promise.resolve()
+
+  assert.is(el.value, 'newer')
+})
+
+test('willChange preserves intentional falsy values', async () => {
+  const tag = nextTag('lite-async-falsy')
+
+  @customElement(tag)
+  class AsyncFalsyEl extends LiteElement {
+    @property() accessor value: any
+
+    async willChange(_propertyKey: string, value: string): Promise<any> {
+      if (value === 'null') return null
+      if (value === 'empty') return ''
+      return value
+    }
+  }
+
+  const el = document.createElement(tag) as AsyncFalsyEl
+  document.body.appendChild(el)
+
+  el.value = 'null'
+  await Promise.resolve()
+  assert.is(el.value, null)
+
+  el.value = 'empty'
+  await Promise.resolve()
+  assert.is(el.value, '')
+})
+
+test('darkMode listener follows connection lifecycle', () => {
+  const originalMatchMedia = window.matchMedia
+  let adds = 0
+  let removes = 0
+
+  window.matchMedia = (() => ({
+    matches: false,
+    addEventListener() {
+      adds++
+    },
+    removeEventListener() {
+      removes++
+    }
+  })) as any
+
+  const tag = nextTag('lite-dark-lifecycle')
+  @customElement(tag)
+  @darkMode()
+  class DarkLifecycleEl extends LiteElement {}
+
+  const el = document.createElement(tag) as DarkLifecycleEl
+  document.body.appendChild(el)
+  assert.is(adds, 1)
+
+  el.remove()
+  assert.is(removes, 1)
+
+  document.body.appendChild(el)
+  assert.is(adds, 2)
+
+  el.remove()
+  window.matchMedia = originalMatchMedia
 })
 
 test('query and queryAll locate elements in shadow DOM', async () => {
