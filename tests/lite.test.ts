@@ -1,7 +1,7 @@
 import { test } from 'uvu'
 import * as assert from 'uvu/assert'
 import './setup.js'
-import { LiteElement, html, property, query, queryAll, customElement, darkMode, map, repeat } from '../src/index.js'
+import { LiteElement, html, property, query, queryAll, customElement, darkMode, listen, map, repeat } from '../src/index.js'
 import { arrayRepeat as arrayRepeatHelper } from '../src/helpers.js'
 
 let tagCounter = 0
@@ -320,6 +320,56 @@ test('darkMode listener follows connection lifecycle', () => {
 
   el.remove()
   window.matchMedia = originalMatchMedia
+})
+
+test('listen uses Stage 3 method decorators and follows host lifecycle', () => {
+  const tag = nextTag('lite-listen-lifecycle')
+
+  @customElement(tag)
+  class ListenLifecycleEl extends LiteElement {
+    calls = 0
+
+    @listen('lite-ping')
+    onPing() {
+      this.calls++
+    }
+  }
+
+  const el = document.createElement(tag) as ListenLifecycleEl
+  document.body.appendChild(el)
+  el.dispatchEvent(new Event('lite-ping'))
+  assert.is(el.calls, 1)
+
+  el.remove()
+  el.dispatchEvent(new Event('lite-ping'))
+  assert.is(el.calls, 1)
+
+  document.body.appendChild(el)
+  el.dispatchEvent(new Event('lite-ping'))
+  assert.is(el.calls, 2)
+})
+
+test('listen supports window targets without leaking detached hosts', () => {
+  const tag = nextTag('lite-listen-window')
+
+  @customElement(tag)
+  class WindowListenEl extends LiteElement {
+    calls = 0
+
+    @listen('lite-window-ping', { target: 'window' })
+    onPing() {
+      this.calls++
+    }
+  }
+
+  const el = document.createElement(tag) as WindowListenEl
+  document.body.appendChild(el)
+  window.dispatchEvent(new Event('lite-window-ping'))
+  assert.is(el.calls, 1)
+
+  el.remove()
+  window.dispatchEvent(new Event('lite-window-ping'))
+  assert.is(el.calls, 1)
 })
 
 test('query and queryAll locate elements in shadow DOM', async () => {
