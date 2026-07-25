@@ -103,8 +103,7 @@ class LiteElement extends HTMLElement {
   }
 
   static get observedAttributes() {
-    // @ts-ignore
-    const attrs = this[Symbol.metadata]?.observedAttributes
+    const attrs = this[Symbol.metadata]?.observedAttributes as Map<string, string> | undefined
     if (!attrs) return []
     const observed = new Set<string>()
     for (const [, attributeName] of attrs.entries()) {

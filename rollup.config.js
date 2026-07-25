@@ -2,7 +2,6 @@ import { cp, glob, readdir } from 'fs/promises'
 import { join } from 'path'
 import typescript from '@rollup/plugin-typescript'
 import { autoExports } from 'rollup-plugin-auto-exports'
-import size from 'rollup-plugin-size'
 import terser from '@rollup/plugin-terser'
 import resolve from '@rollup/plugin-node-resolve'
 import commonjs from '@rollup/plugin-commonjs'
@@ -49,7 +48,7 @@ export default [
       format: 'es',
       dir: 'exports'
     },
-    plugins: [typescript(), autoExports(), size(), terser()]
+    plugins: [typescript(), autoExports(), terser()]
   },
   // Browser bundle: roll up dependencies into a single ESM for direct use in the browser
   {
