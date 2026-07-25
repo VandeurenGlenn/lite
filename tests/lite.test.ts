@@ -229,11 +229,11 @@ test('consumers unsubscribe when detached and resubscribe when reconnected', asy
   assert.is(consumer.value, 'initial')
 
   consumer.remove()
-  provider.value = 'while-detached'
-  assert.is(consumer.value, 'initial')
+  consumer.value = 'local-change'
+  assert.is(consumer.value, 'local-change')
 
   document.body.appendChild(consumer)
-  assert.is(consumer.value, 'while-detached')
+  assert.is(consumer.value, 'initial')
 })
 
 test('async property changes keep the newest assignment', async () => {
@@ -288,15 +288,17 @@ test('willChange preserves intentional falsy values', async () => {
   assert.is(el.value, '')
 })
 
-test('darkMode listener follows connection lifecycle', () => {
+test('darkMode shares one listener across connected instances', () => {
   const originalMatchMedia = window.matchMedia
   let adds = 0
   let removes = 0
+  let listener: ((event: { matches: boolean }) => void) | undefined
 
   window.matchMedia = (() => ({
     matches: false,
-    addEventListener() {
+    addEventListener(_event: string, callback: (event: { matches: boolean }) => void) {
       adds++
+      listener = callback
     },
     removeEventListener() {
       removes++
@@ -308,17 +310,27 @@ test('darkMode listener follows connection lifecycle', () => {
   @darkMode()
   class DarkLifecycleEl extends LiteElement {}
 
-  const el = document.createElement(tag) as DarkLifecycleEl
-  document.body.appendChild(el)
+  const first = document.createElement(tag) as DarkLifecycleEl
+  const second = document.createElement(tag) as DarkLifecycleEl
+  document.body.append(first, second)
   assert.is(adds, 1)
+  assert.is(first.darkMode, false)
+  assert.is(second.darkMode, false)
 
-  el.remove()
+  listener?.({ matches: true })
+  assert.is(first.darkMode, true)
+  assert.is(second.darkMode, true)
+
+  first.remove()
+  assert.is(removes, 0)
+  second.remove()
   assert.is(removes, 1)
 
-  document.body.appendChild(el)
+  document.body.appendChild(first)
   assert.is(adds, 2)
 
-  el.remove()
+  first.remove()
+  assert.is(removes, 2)
   window.matchMedia = originalMatchMedia
 })
 

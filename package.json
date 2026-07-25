@@ -108,6 +108,14 @@
       "import": "./exports/provide.js",
       "types": "./exports/cli/decorators/provide.d.ts"
     },
+    "./pubsub": {
+      "import": "./exports/pubsub.js",
+      "types": "./exports/cli/pubsub.d.ts"
+    },
+    "./pubsub.js": {
+      "import": "./exports/pubsub.js",
+      "types": "./exports/cli/pubsub.d.ts"
+    },
     "./query-all": {
       "import": "./exports/query-all.js",
       "types": "./exports/cli/decorators/query-all.d.ts"

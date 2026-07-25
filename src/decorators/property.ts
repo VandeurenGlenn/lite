@@ -1,12 +1,7 @@
-import LittlePubSub from '@vandeurenglenn/little-pubsub'
+import { pubsub } from '../pubsub.js'
 import { LiteElement } from '../element.js'
 import { PropertyOptions } from '../types.js'
 import { stringToType, typeToString } from '../helpers.js'
-
-globalThis.pubsub = globalThis.pubsub || new LittlePubSub()
-declare global {
-  var pubsub: LittlePubSub
-}
 
 /**
  * @example
@@ -128,7 +123,7 @@ export const property = (options?: PropertyOptions) => {
             this[name] = value
           }
           pubsub.subscribe(consumes, update)
-          return () => pubsub.unsubscribe(consumes, update)
+          return () => pubsub.unsubscribe(consumes, update, { keepValue: true })
         })
       }
     })

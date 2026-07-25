@@ -1,10 +1,27 @@
-import LittlePubSub from '@vandeurenglenn/little-pubsub'
+import { pubsub } from '../pubsub.js'
 import { LiteElement } from '../element.js'
 
-globalThis.pubsub = globalThis.pubsub || new LittlePubSub()
+let media: MediaQueryList | undefined
+const channel = 'lite:dark'
 
-declare global {
-  var pubsub: LittlePubSub
+const notify = ({ matches }: MediaQueryList | MediaQueryListEvent) => {
+  pubsub.publish(channel, matches)
+}
+
+const subscribe = (subscriber: (matches: boolean) => void) => {
+  if (!pubsub.subscriberCount(channel)) {
+    media = window.matchMedia('(prefers-color-scheme: dark)')
+    media.addEventListener('change', notify)
+    notify(media)
+  }
+  pubsub.subscribe(channel, subscriber)
+  return () => {
+    pubsub.unsubscribe(channel, subscriber, { keepValue: true })
+    if (!pubsub.subscriberCount(channel)) {
+      media!.removeEventListener('change', notify)
+      media = undefined
+    }
+  }
 }
 
 export function darkMode(provides?: boolean | string) {
@@ -12,21 +29,15 @@ export function darkMode(provides?: boolean | string) {
     return class extends klass {
       constructor(...args: any[]) {
         super(...args)
-        let propertyKey = 'darkMode'
-        if (typeof provides === 'string') propertyKey = provides
+        const propertyKey = typeof provides === 'string' ? provides : 'darkMode'
 
-        this.addConnectionEffect(() => {
-          const dark = window.matchMedia('(prefers-color-scheme: dark)')
-          const changeMode = ({ matches }) => {
+        this.addConnectionEffect(() =>
+          subscribe((matches) => {
             this[propertyKey] = matches
             this.requestRender()
             if (provides) pubsub.publish(propertyKey, this[propertyKey])
-          }
-
-          dark.addEventListener('change', changeMode)
-          changeMode(dark)
-          return () => dark.removeEventListener('change', changeMode)
-        })
+          })
+        )
       }
     } as T
   }
