@@ -12,11 +12,28 @@ export interface ListenOptions<This extends LiteElement = LiteElement> {
   options?: boolean | AddEventListenerOptions
 }
 
-export function listen<This extends LiteElement = LiteElement, EventType extends Event = Event>(
+type ListenDecorator<This extends LiteElement> = <EventType extends Event>(
+  method: (this: This, event: EventType) => unknown,
+  context: ClassMethodDecoratorContext<This, (this: This, event: EventType) => unknown>
+) => void
+
+type AnyHostListenDecorator = <This extends LiteElement, EventType extends Event>(
+  method: (this: This, event: EventType) => unknown,
+  context: ClassMethodDecoratorContext<This, (this: This, event: EventType) => unknown>
+) => void
+
+type DirectListenOptions = {
+  target?: 'window' | 'document' | EventTarget | string
+  options?: boolean | AddEventListenerOptions
+}
+
+export function listen<This extends LiteElement>(
   event: string,
-  opts: ListenOptions<This> = {}
-) {
-  return function (
+  opts: ListenOptions<This> & { target: (host: This) => EventTarget | null | undefined }
+): ListenDecorator<This>
+export function listen(event: string, opts?: DirectListenOptions): AnyHostListenDecorator
+export function listen(event: string, opts: ListenOptions<any> = {}) {
+  return function <This extends LiteElement, EventType extends Event>(
     method: (this: This, event: EventType) => unknown,
     context: ClassMethodDecoratorContext<This, (this: This, event: EventType) => unknown>
   ) {

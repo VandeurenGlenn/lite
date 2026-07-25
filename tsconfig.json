@@ -4,7 +4,9 @@
     "target": "esnext",
     "outDir": "./exports",
     "moduleResolution": "NodeNext",
-    "declaration": true
+    "declaration": true,
+    "strict": false,
+    "types": ["node"]
   },
   "include": ["./src/**/*"]
 }

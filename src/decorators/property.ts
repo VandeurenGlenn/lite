@@ -20,7 +20,10 @@ const toAttributeName = (propertyKey: string) => propertyKey.replace(/([A-Z])/g,
 
 export const property = (options?: PropertyOptions) => {
   options ??= {}
-  return function (ctor, { kind, name, addInitializer, metadata }: ClassAccessorDecoratorContext<LiteElement>) {
+  return function <This extends LiteElement, Value>(
+    ctor: ClassAccessorDecoratorTarget<This, Value>,
+    { kind, name, addInitializer, metadata }: ClassAccessorDecoratorContext<This, Value>
+  ): ClassAccessorDecoratorResult<This, Value> | void {
     // DEV-ONLY DIAGNOSTICS (tree-shakeable)
     if (isDev) {
       // 1. Warn if not used on accessor
