@@ -1,180 +1,178 @@
-import http from 'http'
-import { readFile, watch } from 'fs/promises'
-import path from 'path'
-import { spawn } from 'child_process'
-import { WebSocketServer } from 'ws' // <-- Add this
+import http from 'node:http'
+import { readFile, realpath, watch } from 'node:fs/promises'
+import path from 'node:path'
+import { spawn } from 'node:child_process'
+import { WebSocketServer } from 'ws'
 
-// Basic frame encoder (text only)
-function encode(str) {
-  const payload = Buffer.from(str)
-  return Buffer.concat([Buffer.from([0x81, payload.length]), payload])
-}
-
-// Parse CLI arguments
 const args = process.argv.slice(2)
-let port = 8000 // Default port
-let wsPort = 8001 // Default WebSocket port
-// Default directory to serve files from
+let port = 8000
 let directory = 'www'
-// Default source directory for development
 let sourceDirectory = 'src'
 let watches = false
 
-console.log(`Starting server with arguments: ${args.join(' ')}`)
+const readPort = (value: string | undefined, flag: string) => {
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 65535) {
+    throw new Error(`${flag} must be an integer between 0 and 65535`)
+  }
+  return parsed
+}
 
-args.forEach((arg, i) => {
-  if ((arg === '-p' || arg === '--port') && args[i + 1]) {
-    port = parseInt(args[i + 1], 10)
-  }
-  if ((arg === '-s' || arg === '--serve') && args[i + 1]) {
-    if (args[i + 1] && !args[i + 1].startsWith('--') && !args[i + 1].startsWith('-')) directory = args[i + 1]
-  }
-  if (arg === '-w' || arg === '--watch') {
+for (let i = 0; i < args.length; i++) {
+  const arg = args[i]
+  if (arg === '-p' || arg === '--port') {
+    port = readPort(args[++i], arg)
+  } else if (arg === '-s' || arg === '--serve') {
+    const value = args[++i]
+    if (!value) throw new Error(`${arg} requires a directory`)
+    directory = value
+  } else if (arg === '-w' || arg === '--watch') {
     watches = true
-    if (args[i + 1] && !args[i + 1].startsWith('--') && !args[i + 1].startsWith('-')) {
-      sourceDirectory = args[i + 1]
-    }
-  }
-  if ((arg === '-ws' || arg === '--ws-port') && args[i + 1]) {
-    if (args[i + 1] && !args[i + 1].startsWith('--') && !args[i + 1].startsWith('-')) {
-      wsPort = parseInt(args[i + 1], 10)
-    }
-  }
-  if (arg === '-d' || arg === '--dev' || arg === '--development') {
+    const value = args[i + 1]
+    if (value && !value.startsWith('-')) sourceDirectory = args[++i]
+  } else if (arg === '-d' || arg === '--dev' || arg === '--development') {
     watches = true
   }
-})
+}
 
-const DIRECTORY = path.resolve(process.cwd(), directory)
+const serveRoot = await realpath(path.resolve(process.cwd(), directory))
+const watchRoot = path.resolve(process.cwd(), sourceDirectory)
+
+const contentTypes = new Map([
+  ['.html', 'text/html'],
+  ['.js', 'application/javascript'],
+  ['.mjs', 'application/javascript'],
+  ['.css', 'text/css'],
+  ['.json', 'application/json'],
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+  ['.gif', 'image/gif'],
+  ['.svg', 'image/svg+xml'],
+  ['.txt', 'text/plain'],
+  ['.woff', 'font/woff'],
+  ['.woff2', 'font/woff2']
+])
+
+const isInside = (root: string, target: string) => {
+  const relative = path.relative(root, target)
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+}
+
+const send = (res: http.ServerResponse, status: number, body: string) => {
+  res.writeHead(status, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'X-Content-Type-Options': 'nosniff'
+  })
+  res.end(body)
+}
 
 const server = http.createServer(async (req, res) => {
-  let filePath = path.join(DIRECTORY, req.url === '/' ? 'index.html' : req.url)
-  const extname = path.extname(filePath)
-  let contentType = 'text/html'
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.setHeader('Allow', 'GET, HEAD')
+    send(res, 405, 'Method Not Allowed')
+    return
+  }
 
-  switch (extname) {
-    case '.html':
-      contentType = 'text/html'
-      break
-    case '.js':
-      contentType = 'application/javascript'
-      break
-    case '.css':
-      contentType = 'text/css'
-      break
-    case '.json':
-      contentType = 'application/json'
-      break
-    case '.png':
-      contentType = 'image/png'
-      break
-    case '.jpg':
-    case '.jpeg':
-      contentType = 'image/jpeg'
-      break
-    case '.gif':
-      contentType = 'image/gif'
-      break
-    case '.svg':
-      contentType = 'image/svg+xml'
-      break
-    case '.txt':
-      contentType = 'text/plain'
-      break
-    case '.woff':
-      contentType = 'font/woff'
-      break
-    case '.woff2':
-      contentType = 'font/woff2'
-      break
-    default:
-      contentType = 'application/octet-stream'
+  let pathname: string
+  try {
+    const requestUrl = new URL(req.url ?? '/', 'http://localhost')
+    pathname = decodeURIComponent(requestUrl.pathname)
+  } catch {
+    send(res, 400, 'Bad Request')
+    return
+  }
+
+  if (pathname.includes('\0')) {
+    send(res, 400, 'Bad Request')
+    return
+  }
+
+  const requestedPath = pathname === '/' ? '/index.html' : pathname
+  const candidate = path.resolve(serveRoot, `.${requestedPath}`)
+  if (!isInside(serveRoot, candidate)) {
+    send(res, 403, 'Forbidden')
+    return
   }
 
   try {
+    const filePath = await realpath(candidate)
+    if (!isInside(serveRoot, filePath)) {
+      send(res, 403, 'Forbidden')
+      return
+    }
+
+    const extension = path.extname(filePath).toLowerCase()
+    const contentType = contentTypes.get(extension) ?? 'application/octet-stream'
     const isText =
       contentType.startsWith('text/') ||
       contentType === 'application/json' ||
       contentType === 'application/javascript' ||
       contentType === 'image/svg+xml'
+    let content: string | Buffer = await readFile(filePath, isText ? 'utf8' : undefined)
 
-    if (isText) {
-      const content = await readFile(filePath, 'utf-8')
-      if (filePath.endsWith('index.html')) {
-        // Inject a script to reload the page on WebSocket message
-        const script = `
+    if (watches && filePath.endsWith('index.html') && typeof content === 'string') {
+      const script = `
           <script>
-            const ws = new WebSocket('ws://' + window.location.host);
-            ws.onopen = () => console.log('WebSocket open');
-            ws.onerror = (e) => console.error('WebSocket error', e);
-            ws.onclose = () => console.log('WebSocket closed');
-            ws.onmessage = function(event) {
-              console.log('WebSocket message received:', event.data);
-              if (event.data === 'reload') {
-                window.location.reload();
-              }
-            };
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(protocol + '//' + window.location.host);
+            ws.onmessage = ({ data }) => data === 'reload' && window.location.reload();
           </script>
         `
-        const modifiedContent = content.replace('</body>', `${script}</body>`)
-        res.writeHead(200, { 'Content-Type': contentType + '; charset=utf-8' })
-        res.end(modifiedContent)
-        console.log(`Served ${filePath} with WebSocket reload script`)
-
-        return
-      }
-      res.writeHead(200, { 'Content-Type': contentType + '; charset=utf-8' })
-      res.end(content)
-    } else {
-      const content = await readFile(filePath)
-      res.writeHead(200, { 'Content-Type': contentType })
-      res.end(content)
+      content = content.replace('</body>', `${script}</body>`)
     }
-  } catch (error) {
-    console.error(`Error reading file ${filePath}:`, error)
-    res.writeHead(404, { 'Content-Type': 'text/plain' })
-    res.end('404 Not Found')
-    return
+
+    res.writeHead(200, {
+      'Content-Type': `${contentType}${isText ? '; charset=utf-8' : ''}`,
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff'
+    })
+    res.end(req.method === 'HEAD' ? undefined : content)
+  } catch {
+    send(res, 404, 'Not Found')
   }
 })
 
 let wss: WebSocketServer | undefined
+let builder: ReturnType<typeof spawn> | undefined
+const watchController = new AbortController()
+
 if (watches) {
   wss = new WebSocketServer({ server })
-  wss.on('connection', (ws) => {
-    console.log('WebSocket connection established')
-  })
 
   const startWatcher = async () => {
-    const watcher = watch(sourceDirectory)
-    for await (const event of watcher)
-      if (event.eventType === 'change') {
-        console.log(`File changed: ${event.filename}`)
-        // Broadcast reload to all clients
-        wss?.clients.forEach(client => {
-          if (client.readyState === 1) { // 1 === OPEN
-            client.send('reload')
-          }
+    try {
+      const watcher = watch(watchRoot, { signal: watchController.signal })
+      for await (const event of watcher) {
+        if (event.eventType !== 'change') continue
+        wss?.clients.forEach((client) => {
+          if (client.readyState === 1) client.send('reload')
         })
       }
+    } catch (error: any) {
+      if (error?.name !== 'AbortError') console.error(`Watcher failed: ${error?.message ?? error}`)
+    }
   }
 
-  console.log('Watching for changes...')
-  try {
-    startWatcher()
-  } catch (err) {
-    console.error(`Error watching directory ${sourceDirectory}:`, err)
-    throw err
-  }
-
-  const builder = spawn('npm', ['run', 'watch'])
-  builder.stdout.on('data', (data) => { console.log(` ${data}`) })
-  builder.stderr.on('data', (data) => { console.error(` ${data}`) })
-  builder.on('close', (code) => { console.log(`Builder process exited with code ${code}`) })
+  void startWatcher()
+  builder = spawn('npm', ['run', 'watch'], { stdio: 'inherit' })
 }
 
-server.listen(port, () => {
-  console.log(`Serving "${DIRECTORY}" at http://localhost:${port}/`)
-})
+let shuttingDown = false
+const shutdown = () => {
+  if (shuttingDown) return
+  shuttingDown = true
+  watchController.abort()
+  builder?.kill()
+  wss?.close()
+  server.close()
+}
 
-const o = 1
+process.once('SIGINT', shutdown)
+process.once('SIGTERM', shutdown)
+
+server.listen(port, '127.0.0.1', () => {
+  const address = server.address()
+  const activePort = typeof address === 'object' && address ? address.port : port
+  console.log(`Serving "${serveRoot}" at http://127.0.0.1:${activePort}/`)
+})
