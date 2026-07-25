@@ -16,14 +16,9 @@ export function listen(event: string, opts: ListenOptions = {}) {
 
     context.addInitializer(function () {
       const handler = method.bind(this) as EventListener
-
-      this.addConnectionEffect(() => {
-        const target: EventTarget =
-          opts.target === 'window' ? window : opts.target === 'document' ? document : opts.target ?? this
-
-        target.addEventListener(event, handler, opts.options)
-        return () => target.removeEventListener(event, handler, opts.options)
-      })
+      const target: EventTarget =
+        opts.target === 'window' ? window : opts.target === 'document' ? document : opts.target ?? this
+      this.addListener(event, handler, opts.options, target)
     })
   }
 }

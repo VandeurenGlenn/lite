@@ -372,6 +372,30 @@ test('listen supports window targets without leaking detached hosts', () => {
   assert.is(el.calls, 1)
 })
 
+test('addListener attaches immediately and follows connection lifecycle', () => {
+  const tag = nextTag('lite-add-listener')
+
+  @customElement(tag)
+  class AddListenerEl extends LiteElement {
+    calls = 0
+  }
+
+  const el = document.createElement(tag) as AddListenerEl
+  document.body.appendChild(el)
+  el.addListener('lite-direct-ping', () => el.calls++)
+
+  el.dispatchEvent(new Event('lite-direct-ping'))
+  assert.is(el.calls, 1)
+
+  el.remove()
+  el.dispatchEvent(new Event('lite-direct-ping'))
+  assert.is(el.calls, 1)
+
+  document.body.appendChild(el)
+  el.dispatchEvent(new Event('lite-direct-ping'))
+  assert.is(el.calls, 2)
+})
+
 test('query and queryAll locate elements in shadow DOM', async () => {
   const tag = nextTag('lite-query')
   @customElement(tag)

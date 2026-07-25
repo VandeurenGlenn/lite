@@ -48,7 +48,6 @@ class LiteElement extends HTMLElement {
   private renderedPromise: Promise<boolean> = LiteElement.resolvedRenderedPromise
   private renderedPending = false
   private renderedOnce = false
-  private listeners: [string, EventListenerOrEventListenerObject][] = []
   private connectionEffects?: ConnectionEffect[]
   private connectionCleanups?: ConnectionCleanup[]
   private renderScheduled = false
@@ -131,7 +130,8 @@ class LiteElement extends HTMLElement {
     const effects = this.connectionEffects
     if (effects) {
       const cleanups = (this.connectionCleanups ??= [])
-      for (let i = 0; i < effects.length; i++) {
+      const effectCount = effects.length
+      for (let i = 0; i < effectCount; i++) {
         const cleanup = effects[i]()
         if (cleanup) cleanups.push(cleanup)
       }
@@ -160,9 +160,6 @@ class LiteElement extends HTMLElement {
     if (cleanups) {
       for (let i = 0; i < cleanups.length; i++) cleanups[i]()
       cleanups.length = 0
-    }
-    for (const [event, listener] of this.listeners) {
-      this.removeEventListener(event, listener)
     }
   }
 
@@ -212,11 +209,18 @@ class LiteElement extends HTMLElement {
   firstRender?(): void
 
   /**
-   * Adds an event listener to the element and stores it in a list to be removed when the element is disconnected
+   * Registers an event listener for the element's connected lifetime.
    */
-  addListener(event: string, listener: EventListenerOrEventListenerObject) {
-    this.listeners.push([event, listener])
-    this.addEventListener(event, listener)
+  addListener(
+    event: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+    target: EventTarget = this
+  ) {
+    this.addConnectionEffect(() => {
+      target.addEventListener(event, listener, options)
+      return () => target.removeEventListener(event, listener, options)
+    })
   }
 
   /**
@@ -225,6 +229,10 @@ class LiteElement extends HTMLElement {
    */
   addConnectionEffect(effect: ConnectionEffect) {
     ;(this.connectionEffects ??= []).push(effect)
+    if (this.isConnected) {
+      const cleanup = effect()
+      if (cleanup) (this.connectionCleanups ??= []).push(cleanup)
+    }
   }
 }
 export { html, LiteElement, css }
