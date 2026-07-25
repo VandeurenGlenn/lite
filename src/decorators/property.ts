@@ -58,7 +58,7 @@ export const property = (options?: PropertyOptions) => {
 
     // Cache property key strings to avoid repeated concatenation
     const liteKey = `_lite_${propertyKey}`
-    const tempKey = `__lite_${propertyKey}`
+    const revisionKey = Symbol(`lite-revision:${propertyKey}`)
     const timeoutKey = `_${propertyKey}_timeout`
     const batchesKey = '_lite_batches'
     const hasBatchTimeout = !!batches && batchDelay > 0
@@ -123,8 +123,12 @@ export const property = (options?: PropertyOptions) => {
         }
       }
       if (consumes) {
-        pubsub.subscribe(consumes, async (value) => {
-          this[name] = value
+        this.addConnectionEffect(() => {
+          const update = (value) => {
+            this[name] = value
+          }
+          pubsub.subscribe(consumes, update)
+          return () => pubsub.unsubscribe(consumes, update)
         })
       }
     })
@@ -151,7 +155,7 @@ export const property = (options?: PropertyOptions) => {
     }
 
     function get() {
-      return this[tempKey] !== undefined ? this[tempKey] : this[liteKey]
+      return this[liteKey]
     }
 
     function coerceValue(value, currentValue) {
@@ -247,16 +251,20 @@ export const property = (options?: PropertyOptions) => {
     }
 
     async function setAsync(value) {
+      const revision = (this[revisionKey] ?? 0) + 1
+      this[revisionKey] = revision
       const currentValue = this[liteKey]
       const coerced = coerceValue(value, currentValue)
 
-      if (provides) pubsub.publish(provides, coerced)
       if (currentValue === coerced) return
 
       if (this.beforeChange) await this.beforeChange(name, coerced)
-      if (this.willChange) this[tempKey] = await this.willChange(name, coerced)
+      const changedValue = this.willChange ? await this.willChange(name, coerced) : coerced
 
-      const finalValue = this[tempKey] ?? coerced
+      if (this[revisionKey] !== revision) return
+
+      const finalValue = changedValue === undefined ? coerced : changedValue
+      if (provides) pubsub.publish(provides, finalValue)
       commitValue.call(this, coerced, finalValue)
     }
   }

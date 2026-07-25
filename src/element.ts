@@ -8,6 +8,8 @@ export declare interface ElementConstructor extends HTMLElement {
 }
 
 export type StyleList = CSSResult[] | CSSStyleSheet[] | CSSResult | CSSStyleSheet
+type ConnectionCleanup = () => void
+type ConnectionEffect = () => void | ConnectionCleanup
 ;(Symbol as any).metadata ??= Symbol('metadata')
 
 class LiteElement extends HTMLElement {
@@ -47,6 +49,8 @@ class LiteElement extends HTMLElement {
   private renderedPending = false
   private renderedOnce = false
   private listeners: [string, EventListenerOrEventListenerObject][] = []
+  private connectionEffects?: ConnectionEffect[]
+  private connectionCleanups?: ConnectionCleanup[]
   private renderScheduled = false
   private _lite_reflecting = false
   private performQueuedRender() {
@@ -125,6 +129,14 @@ class LiteElement extends HTMLElement {
   }
 
   connectedCallback() {
+    const effects = this.connectionEffects
+    if (effects) {
+      const cleanups = (this.connectionCleanups ??= [])
+      for (let i = 0; i < effects.length; i++) {
+        const cleanup = effects[i]()
+        if (cleanup) cleanups.push(cleanup)
+      }
+    }
     this.reflectConnectedProperties()
     if (this.beforeRender) this.beforeRender()
     this.requestRender()
@@ -145,6 +157,11 @@ class LiteElement extends HTMLElement {
   }
 
   disconnectedCallback() {
+    const cleanups = this.connectionCleanups
+    if (cleanups) {
+      for (let i = 0; i < cleanups.length; i++) cleanups[i]()
+      cleanups.length = 0
+    }
     for (const [event, listener] of this.listeners) {
       this.removeEventListener(event, listener)
     }
@@ -201,6 +218,14 @@ class LiteElement extends HTMLElement {
   addListener(event: string, listener: EventListenerOrEventListenerObject) {
     this.listeners.push([event, listener])
     this.addEventListener(event, listener)
+  }
+
+  /**
+   * Registers work that should exist only while the element is connected.
+   * The optional returned cleanup runs on disconnect and the effect runs again on reconnect.
+   */
+  addConnectionEffect(effect: ConnectionEffect) {
+    ;(this.connectionEffects ??= []).push(effect)
   }
 }
 export { html, LiteElement, css }

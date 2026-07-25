@@ -1,4 +1,5 @@
 import LittlePubSub from '@vandeurenglenn/little-pubsub'
+import { LiteElement } from '../element.js'
 
 globalThis.pubsub = globalThis.pubsub || new LittlePubSub()
 
@@ -7,22 +8,26 @@ declare global {
 }
 
 export function darkMode(provides?: boolean | string) {
-  return (klass: Function, { addInitializer }) => {
-    addInitializer(function () {
-      let propertyKey = 'darkMode'
-      if (typeof provides === 'string') propertyKey = provides
+  return <T extends new (...args: any[]) => LiteElement>(klass: T): T => {
+    return class extends klass {
+      constructor(...args: any[]) {
+        super(...args)
+        let propertyKey = 'darkMode'
+        if (typeof provides === 'string') propertyKey = provides
 
-      const dark = window.matchMedia('(prefers-color-scheme: dark)')
+        this.addConnectionEffect(() => {
+          const dark = window.matchMedia('(prefers-color-scheme: dark)')
+          const changeMode = ({ matches }) => {
+            this[propertyKey] = matches
+            this.requestRender()
+            if (provides) pubsub.publish(propertyKey, this[propertyKey])
+          }
 
-      const changeMode = ({ matches }) => {
-        if (matches) this[propertyKey] = true
-        else this[propertyKey] = false
-        this.requestRender()
-        if (provides) pubsub.publish(propertyKey, this.darkMode)
+          dark.addEventListener('change', changeMode)
+          changeMode(dark)
+          return () => dark.removeEventListener('change', changeMode)
+        })
       }
-
-      dark.addEventListener('change', changeMode)
-      changeMode(dark)
-    })
+    } as T
   }
 }
